@@ -25,7 +25,6 @@ A fully-featured budget tracker built with Flask to manage your income, expenses
 - **Python + Flask** (Backend)
 - **SQLite** (Database)
 - **HTML/CSS + Bootstrap** (Frontend)
-- **JavaScript** (Dark mode toggle)
 - **Chart.js** (Graphs)
 - **SpeechRecognition + PyAudio** (Voice assistant)
 - **scikit-learn** (ML model)
