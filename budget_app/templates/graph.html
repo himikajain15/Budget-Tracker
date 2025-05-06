@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Spending Insights</h2>
+
+<!-- Chart container -->
+<canvas id="expenseChart" width="400" height="200"></canvas>
+
+<!-- Optional additional insights -->
+<div class="mt-4">
+    <h5>Summary:</h5>
+    <ul>
+        <li><strong>Total Income:</strong> {{ total_income }}</li>
+        <li><strong>Total Expense:</strong> {{ total_expense }}</li>
+        <li><strong>Most Spent Category:</strong> {{ top_category }}</li>
+    </ul>
+</div>
+
+<!-- Chart.js script -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    
+    const expenseChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ categories | tojson }},
+            datasets: [{
+                label: 'Expenses',
+                data: {{ amounts | tojson }},
+                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Expenses by Category'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Export Your Financial Data</h2>
+
+<form method="POST" class="mb-4">
+    {{ form.hidden_tag() }}
+
+    <div class="mb-3">
+        {{ form.export_format.label(class="form-label") }}
+        {{ form.export_format(class="form-control") }}
+    </div>
+
+    <div class="row mb-3">
+        <div class="col">
+            {{ form.start_date.label(class="form-label") }}
+            {{ form.start_date(class="form-control") }}
+        </div>
+        <div class="col">
+            {{ form.end_date.label(class="form-label") }}
+            {{ form.end_date(class="form-control") }}
+        </div>
+    </div>
+
+    {{ form.submit(class="btn btn-success") }}
+</form>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{% endblock %}

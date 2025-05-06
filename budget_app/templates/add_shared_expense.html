@@ -1,0 +1,48 @@
+<!-- templates/add_shared_expense.html -->
+
+{% extends "base.html" %}
+{% block title %}Add Shared Expense{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-primary">Add Shared Expense to "{{ group.name }}"</h2>
+    
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Expense Form -->
+    <form method="POST">
+        {{ form.hidden_tag() }}
+
+        <!-- Description -->
+        <div class="mb-3">
+            {{ form.description.label(class="form-label") }}
+            {{ form.description(class="form-control", placeholder="Enter expense description") }}
+        </div>
+
+        <!-- Amount -->
+        <div class="mb-3">
+            {{ form.amount.label(class="form-label") }}
+            {{ form.amount(class="form-control", placeholder="Enter total amount") }}
+        </div>
+
+        <!-- Paid By -->
+        <div class="mb-3">
+            {{ form.paid_by.label(class="form-label") }}
+            {{ form.paid_by(class="form-select") }}
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-success">Add Shared Expense</button>
+
+        <!-- Back Button -->
+        <a href="{{ url_for('main.view_group', group_id=group.id) }}" class="btn btn-secondary ms-2">Back to Group</a>
+    </form>
+</div>
+{% endblock %}

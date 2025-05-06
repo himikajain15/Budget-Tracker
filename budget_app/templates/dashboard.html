@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h2 class="mt-4">Dashboard</h2>
+
+    <!-- Summary Cards -->
+    <div class="row my-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Total Income</div>
+                <div class="card-body">
+                    <h5 class="card-title">₹{{ total_income }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-danger mb-3">
+                <div class="card-header">Total Expenses</div>
+                <div class="card-body">
+                    <h5 class="card-title">₹{{ total_expense }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Balance</div>
+                <div class="card-body">
+                    <h5 class="card-title">₹{{ balance }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="mb-3">
+        <a href="{{ url_for('main.add_income') }}" class="btn btn-success">Add Income</a>
+        <a href="{{ url_for('main.add_expense') }}" class="btn btn-danger">Add Expense</a>
+        <a href="{{ url_for('main.graph') }}" class="btn btn-primary">View Graphs</a>
+        <a href="{{ url_for('main.profile') }}" class="btn btn-secondary">View Profile</a>
+        <a href="{{ url_for('main.export') }}" class="btn btn-warning">Export Data</a>
+    </div>
+
+    <!-- Incomes Table -->
+    <h4>Your Incomes</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Amount</th>
+                <th>Source</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for income in incomes %}
+            <tr>
+                <td>₹{{ income.amount }}</td>
+                <td>{{ income.source }}</td>
+                <td>{{ income.date.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Expenses Table -->
+    <h4>Your Expenses</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Amount</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for expense in expenses %}
+            <tr>
+                <td>₹{{ expense.amount }}</td>
+                <td>{{ expense.category }}</td>
+                <td>{{ expense.description }}</td>
+                <td>{{ expense.date.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

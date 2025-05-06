@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Add Expense Section -->
+<div class="container mt-5">
+    <div class="card shadow-lg p-4 rounded">
+        <h2 class="text-center mb-4">Add Expense</h2>
+
+        <!-- Expense Addition Form -->
+        <form method="POST">
+            {{ form.hidden_tag() }}
+
+            <!-- Amount Input Field -->
+            <div class="mb-3">
+                {{ form.amount.label(class="form-label") }}
+                {{ form.amount(class="form-control form-control-lg") }}
+            </div>
+
+            <!-- Category Input Field -->
+            <div class="mb-3">
+                {{ form.category.label(class="form-label") }}
+                {{ form.category(class="form-control form-control-lg") }}
+            </div>
+
+            <!-- Description Input Field -->
+            <div class="mb-3">
+                {{ form.description.label(class="form-label") }}
+                {{ form.description(class="form-control form-control-lg") }}
+            </div>
+
+            <!-- Date Input Field -->
+            <div class="mb-3">
+                {{ form.date.label(class="form-label") }}
+                {{ form.date(class="form-control form-control-lg") }}
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-center">
+                <button type="submit" class="btn btn-danger btn-lg px-4 py-2">Add Expense</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
