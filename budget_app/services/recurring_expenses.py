@@ -2,7 +2,7 @@
 # Handles logic for recurring incomes and expenses (e.g., monthly rent, salary)
 
 from datetime import datetime, timedelta
-from ..models import RecurringEntry, Income, Expense
+from ..models import RecurringTransaction, Income, Expense
 from .. import db
 
 def process_recurring_entries(user_id):
@@ -12,37 +12,41 @@ def process_recurring_entries(user_id):
     Args:
         user_id (int): ID of the user whose recurring entries will be processed.
     """
-    today = datetime.utcnow().date()
+    today = datetime.utcnow()
     
-    # Get all recurring entries for the user
-    recurring_entries = RecurringEntry.query.filter_by(user_id=user_id).all()
+    # Get all recurring transactions for the user
+    recurring_entries = RecurringTransaction.query.filter_by(user_id=user_id).all()
 
     for entry in recurring_entries:
         # Check if it's time to add the next entry
-        if entry.next_due_date <= today:
-            if entry.entry_type == 'income':
+        if entry.next_date <= today:
+            if entry.type == 'income':
                 new_entry = Income(
                     amount=entry.amount,
-                    source=entry.description,
-                    date=today,
+                    source=entry.category or 'Recurring Income',
+                    date=today.date(),
+                    is_recurring=True,
+                    frequency=entry.interval,
                     user_id=user_id
                 )
             else:
                 new_entry = Expense(
                     amount=entry.amount,
-                    category=entry.description,
+                    category=entry.category or 'Recurring Expense',
                     date=today,
+                    is_recurring=True,
+                    frequency=entry.interval,
                     user_id=user_id
                 )
             db.session.add(new_entry)
 
             # Update the next due date based on the frequency
-            if entry.frequency == 'daily':
-                entry.next_due_date += timedelta(days=1)
-            elif entry.frequency == 'weekly':
-                entry.next_due_date += timedelta(weeks=1)
-            elif entry.frequency == 'monthly':
-                entry.next_due_date = add_month(entry.next_due_date)
+            if entry.interval == 'daily':
+                entry.next_date += timedelta(days=1)
+            elif entry.interval == 'weekly':
+                entry.next_date += timedelta(weeks=1)
+            elif entry.interval == 'monthly':
+                entry.next_date = add_month(entry.next_date)
 
     db.session.commit()
 

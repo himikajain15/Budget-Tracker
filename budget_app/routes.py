@@ -4,6 +4,7 @@
 import os
 import secrets
 import csv
+from datetime import datetime, date
 from io import BytesIO, StringIO
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, Response
 from flask_login import login_user, login_required, logout_user, current_user
@@ -15,7 +16,7 @@ from reportlab.pdfgen import canvas
 from .forms import ProfileForm
 
 from . import db
-from .models import User, Income, Expense, UserProfile, Group, SharedExpense, GroupMember
+from .models import User, Income, Expense, UserProfile, Group, SharedExpense, GroupMember, ExpenseShare
 from .forms import (
     RegistrationForm, LoginForm, IncomeForm, ExpenseForm,
     ProfileForm, ExportForm, CreateGroupForm, AddMemberForm, AddSharedExpenseForm
@@ -37,10 +38,6 @@ def save_picture(form_picture):
     img.save(picture_path)
 
     return picture_fn
-
-#@main.route('/')
-#def index():
-    #return render_template('index.html')
 
 
 # -------------------- Home --------------------
@@ -93,6 +90,15 @@ def logout():
     return redirect(url_for('main.login'))
 
 
+# -------------------- Toggle Dark Mode --------------------
+@main.route('/toggle_dark_mode')
+@login_required
+def toggle_dark_mode():
+    from .services.dark_mode import toggle_dark_mode as toggle_dark
+    toggle_dark()
+    return redirect(request.referrer or url_for('main.dashboard'))
+
+
 # -------------------- Dashboard --------------------
 @main.route('/dashboard')
 @login_required
@@ -134,13 +140,23 @@ def add_income():
 def add_expense():
     form = ExpenseForm()
     if form.validate_on_submit():
+        # Use ML to predict category if description provided and category is empty
+        if form.description.data and not form.category.data:
+            from .ml_utils import predict_category
+            predicted_category = predict_category(form.description.data)
+            category = predicted_category if predicted_category else "Other"
+        elif not form.category.data:
+            category = "Other"
+        else:
+            category = form.category.data
+        
         expense = Expense(
             amount=form.amount.data,
-            category=form.category.data,
+            category=category,
             description=form.description.data,
-            date=form.date.data,
+            date=form.date.data or datetime.utcnow().date(),
             is_recurring=form.is_recurring.data,
-            frequency=form.frequency.data,
+            frequency=form.frequency.data if form.is_recurring.data else 'none',
             user_id=current_user.id
         )
         db.session.add(expense)
@@ -148,6 +164,90 @@ def add_expense():
         flash('Expense added!', 'success')
         return redirect(url_for('main.dashboard'))
     return render_template('add_expense.html', form=form)
+
+
+# -------------------- Edit Expense --------------------
+@main.route('/edit_expense/<int:expense_id>', methods=['GET', 'POST'])
+@login_required
+def edit_expense(expense_id):
+    expense = Expense.query.get_or_404(expense_id)
+    if expense.user_id != current_user.id:
+        flash('You do not have permission to edit this expense.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    form = ExpenseForm(obj=expense)
+    if form.validate_on_submit():
+        expense.amount = form.amount.data
+        # Use ML to predict category if description provided and category is empty
+        if form.description.data and not form.category.data:
+            from .ml_utils import predict_category
+            predicted_category = predict_category(form.description.data)
+            expense.category = predicted_category if predicted_category else "Other"
+        elif not form.category.data:
+            expense.category = "Other"
+        else:
+            expense.category = form.category.data
+        expense.description = form.description.data
+        expense.date = form.date.data or datetime.utcnow().date()
+        expense.is_recurring = form.is_recurring.data
+        expense.frequency = form.frequency.data if form.is_recurring.data else 'none'
+        db.session.commit()
+        flash('Expense updated successfully!', 'success')
+        return redirect(url_for('main.dashboard'))
+    return render_template('add_expense.html', form=form, expense=expense, is_edit=True)
+
+
+# -------------------- Delete Expense --------------------
+@main.route('/delete_expense/<int:expense_id>', methods=['POST'])
+@login_required
+def delete_expense(expense_id):
+    expense = Expense.query.get_or_404(expense_id)
+    if expense.user_id != current_user.id:
+        flash('You do not have permission to delete this expense.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    db.session.delete(expense)
+    db.session.commit()
+    flash('Expense deleted successfully!', 'success')
+    return redirect(url_for('main.dashboard'))
+
+
+# -------------------- Edit Income --------------------
+@main.route('/edit_income/<int:income_id>', methods=['GET', 'POST'])
+@login_required
+def edit_income(income_id):
+    income = Income.query.get_or_404(income_id)
+    if income.user_id != current_user.id:
+        flash('You do not have permission to edit this income.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    form = IncomeForm(obj=income)
+    if form.validate_on_submit():
+        income.amount = form.amount.data
+        income.source = form.source.data
+        income.description = form.description.data
+        income.date = form.date.data
+        income.is_recurring = form.is_recurring.data
+        income.frequency = form.frequency.data if form.is_recurring.data else 'none'
+        db.session.commit()
+        flash('Income updated successfully!', 'success')
+        return redirect(url_for('main.dashboard'))
+    return render_template('add_income.html', form=form, income=income, is_edit=True)
+
+
+# -------------------- Delete Income --------------------
+@main.route('/delete_income/<int:income_id>', methods=['POST'])
+@login_required
+def delete_income(income_id):
+    income = Income.query.get_or_404(income_id)
+    if income.user_id != current_user.id:
+        flash('You do not have permission to delete this income.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    db.session.delete(income)
+    db.session.commit()
+    flash('Income deleted successfully!', 'success')
+    return redirect(url_for('main.dashboard'))
 
 
 # -------------------- Profile --------------------
@@ -164,6 +264,10 @@ def profile():
     if form.validate_on_submit():
         current_user.username = form.username.data
         current_user.email = form.email.data
+
+        # Update password only if provided
+        if form.password.data:
+            current_user.password = generate_password_hash(form.password.data)
 
         if form.profile_picture.data:
             picture_file = save_picture(form.profile_picture.data)
@@ -190,7 +294,14 @@ def graph():
     # Calculate additional insights
     total_income = sum(i.amount for i in Income.query.filter_by(user_id=current_user.id).all())
     total_expense = sum(e.amount for e in expenses)
-    top_category = max(set(categories), key = categories.count)  # This will give the most frequent category
+    
+    # Handle empty categories list
+    if categories:
+        from collections import Counter
+        category_counts = Counter(categories)
+        top_category = category_counts.most_common(1)[0][0] if category_counts else "N/A"
+    else:
+        top_category = "N/A"
 
     return render_template('graph.html', categories=categories, amounts=amounts,
                            total_income=total_income, total_expense=total_expense, top_category=top_category)
@@ -206,33 +317,65 @@ def export():
         start_date = form.start_date.data
         end_date = form.end_date.data
 
-        data = [
-            {'category': 'Food', 'amount': 50.0, 'date': '2025-05-01'},
-            {'category': 'Transport', 'amount': 20.0, 'date': '2025-05-02'},
-        ]
+        # Get actual user data
+        expenses = Expense.query.filter(
+            Expense.user_id == current_user.id,
+            Expense.date >= start_date,
+            Expense.date <= end_date
+        ).all()
+        
+        incomes = Income.query.filter(
+            Income.user_id == current_user.id,
+            Income.date >= start_date,
+            Income.date <= end_date
+        ).all()
+
+        # Prepare data for export
+        data = []
+        for expense in expenses:
+            data.append({
+                'type': 'Expense',
+                'category': expense.category,
+                'description': expense.description or '',
+                'amount': expense.amount,
+                'date': expense.date.strftime('%Y-%m-%d') if isinstance(expense.date, datetime) else str(expense.date)
+            })
+        
+        for income in incomes:
+            data.append({
+                'type': 'Income',
+                'category': income.source,
+                'description': income.description or '',
+                'amount': income.amount,
+                'date': income.date.strftime('%Y-%m-%d') if isinstance(income.date, date) else str(income.date)
+            })
 
         if export_format == 'csv':
             output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=['category', 'amount', 'date'])
+            writer = csv.DictWriter(output, fieldnames=['type', 'category', 'description', 'amount', 'date'])
             writer.writeheader()
             writer.writerows(data)
             csv_data = output.getvalue().encode('utf-8')
             return Response(csv_data, mimetype='text/csv',
-                            headers={"Content-Disposition": "attachment;filename=financial_data.csv"})
+                            headers={"Content-Disposition": f"attachment;filename=financial_data_{start_date}_to_{end_date}.csv"})
 
         elif export_format == 'pdf':
             buffer = BytesIO()
             c = canvas.Canvas(buffer, pagesize=letter)
             c.drawString(100, 750, f"Financial Data Export - {start_date} to {end_date}")
-            y = 730
+            c.drawString(100, 730, f"User: {current_user.username}")
+            y = 710
             for entry in data:
-                c.drawString(100, y, f"Category: {entry['category']}, Amount: {entry['amount']}, Date: {entry['date']}")
+                if y < 50:  # New page if needed
+                    c.showPage()
+                    y = 750
+                c.drawString(100, y, f"{entry['type']}: {entry['category']} - {entry['description']} - ${entry['amount']} - {entry['date']}")
                 y -= 20
             c.showPage()
             c.save()
             buffer.seek(0)
             return Response(buffer.getvalue(), mimetype='application/pdf',
-                            headers={"Content-Disposition": "attachment;filename=financial_data.pdf"})
+                            headers={"Content-Disposition": f"attachment;filename=financial_data_{start_date}_to_{end_date}.pdf"})
 
         flash('Data exported successfully!', 'success')
         return redirect(url_for('main.export'))
@@ -299,39 +442,97 @@ def group_detail(group_id):
     return render_template('group_detail.html', group=group)
 
 
+# -------------------- View Groups --------------------
+@main.route('/groups')
+@login_required
+def view_groups():
+    # Get all groups where user is a member
+    user_groups = Group.query.join(GroupMember).filter(GroupMember.user_id == current_user.id).all()
+    # Also include groups created by user
+    created_groups = Group.query.filter_by(created_by=current_user.id).all()
+    all_groups = list(set(user_groups + created_groups))
+    return render_template('view_groups.html', groups=all_groups)
+
+
 # -------------------- View Group --------------------
 @main.route('/view_group/<int:group_id>')
 @login_required
 def view_group(group_id):
     group = Group.query.get_or_404(group_id)
-    return render_template('view_group.html', group=group, members=group.members)
+    # Check if user is a member
+    is_member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not is_member and group.created_by != current_user.id:
+        flash('You do not have access to this group.', 'danger')
+        return redirect(url_for('main.view_groups'))
+    
+    # Calculate balances for each member and get user objects
+    member_balances = {}
+    member_users = {}
+    for member in group.members:
+        user = User.query.get(member.user_id)
+        if user:
+            member_users[member.user_id] = user
+            total_owed = sum(share.amount_owed for expense in group.expenses for share in expense.shares if share.user_id == user.id)
+            total_paid = sum(expense.amount for expense in group.expenses if expense.paid_by == user.id)
+            member_balances[user.id] = {
+                'username': user.username,
+                'owed': total_owed,
+                'paid': total_paid,
+                'balance': total_paid - total_owed
+            }
+    
+    # Get user objects for expenses
+    expense_users = {}
+    for expense in group.expenses:
+        payer = User.query.get(expense.paid_by)
+        if payer:
+            expense_users[expense.id] = payer
+    
+    return render_template('view_group.html', group=group, members=group.members, member_balances=member_balances, member_users=member_users, expense_users=expense_users)
 
 
-# -------------------- Add Shared Expense --------------------
 # -------------------- Add Shared Expense --------------------
 @main.route('/add_shared_expense/<int:group_id>', methods=['GET', 'POST'])
 @login_required
 def add_shared_expense(group_id):
     group = Group.query.get_or_404(group_id)
+    
+    # Check if user is a member of the group
+    is_member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not is_member:
+        flash('You must be a member of this group to add expenses.', 'danger')
+        return redirect(url_for('main.view_group', group_id=group_id))
+    
     form = AddSharedExpenseForm()
-    form.paid_by.choices = [(user.id, user.username) for user in group.members]
+    # Get actual user objects from group members
+    member_users = [User.query.get(member.user_id) for member in group.members if User.query.get(member.user_id)]
+    form.paid_by.choices = [(user.id, user.username) for user in member_users]
 
     if form.validate_on_submit():
         description = form.description.data
         amount = form.amount.data
         paid_by_id = form.paid_by.data
 
-        expense = SharedExpense(description=description, amount=amount, group_id=group.id, paid_by_id=paid_by_id)
+        expense = SharedExpense(description=description, amount=amount, group_id=group.id, paid_by=paid_by_id)
         db.session.add(expense)
-        db.session.commit()
+        db.session.flush()  # Get the expense ID
 
+        # Calculate share per member
         total_members = len(group.members)
-        share = amount / total_members
+        if total_members == 0:
+            flash('Group has no members.', 'danger')
+            return redirect(url_for('main.view_group', group_id=group_id))
+        
+        share_per_person = amount / total_members
 
+        # Create ExpenseShare records for each member
         for member in group.members:
-            if member.id != paid_by_id:
-                member.balance -= share
-        User.query.get(paid_by_id).balance += amount
+            share = ExpenseShare(
+                expense_id=expense.id,
+                user_id=member.user_id,
+                amount_owed=share_per_person
+            )
+            db.session.add(share)
 
         db.session.commit()
         flash('Shared expense added successfully!', 'success')

@@ -20,11 +20,11 @@ class ProfileForm(FlaskForm):
     # Email field (required, must be in email format)
     email = StringField('Email', validators=[DataRequired(), Email()])
 
-    # Password field (required)
-    password = PasswordField('Password', validators=[DataRequired()])
+    # Password field (optional for updates)
+    password = PasswordField('New Password (leave blank to keep current)', validators=[Optional(), Length(min=6)])
 
-    # Confirm password field (required and must match password)
-    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    # Confirm password field (optional, must match password if provided)
+    confirm_password = PasswordField('Confirm New Password', validators=[Optional(), EqualTo('password', message='Passwords must match')])
 
     # Profile picture field (optional, allows image uploads)
     profile_picture = FileField('Profile Picture', validators=[
@@ -117,8 +117,8 @@ class ExpenseForm(FlaskForm):
     # Amount field (required, should be a float)
     amount = FloatField('Amount', validators=[DataRequired()])
 
-    # Category field (required, should be a string)
-    category = StringField('Category', validators=[DataRequired()])
+    # Category field (optional, can be auto-predicted from description)
+    category = StringField('Category', validators=[Optional()])
 
     # Description field (optional)
     description = TextAreaField('Description', validators=[Optional()])

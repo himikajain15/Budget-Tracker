@@ -5,7 +5,6 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
-#from budget_app.routes import main
 
 # Initialize Flask extensions (not bound to the app yet)
 db = SQLAlchemy()                # For ORM-based database management
@@ -20,8 +19,9 @@ def create_app():
     app = Flask(__name__)  # Create the Flask app instance
 
     # --------------------------- Configuration ---------------------------
-    app.config['SECRET_KEY'] = 'your_secret_key'  # Used for sessions & CSRF protection
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///budget.db'  # SQLite DB path
+    import os
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your-secret-key-change-in-production'  # Used for sessions & CSRF protection
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'sqlite:///budget.db'  # SQLite DB path
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Upload folder config for profile pictures

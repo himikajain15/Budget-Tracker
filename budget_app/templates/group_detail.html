@@ -1,27 +1,53 @@
 {% extends 'base.html' %}
 
-{% block content %}
-    <div class="container">
-        <h1>Group: {{ group.name }}</h1>
-        <p>{{ group.description }}</p>
-        
-        <h3>Members:</h3>
-        <ul>
-            {% for member in group.members %}
-                <li>{{ member.user.username }}</li>
-            {% else %}
-                <li>No members yet.</li>
-            {% endfor %}
-        </ul>
+{% block title %}Manage {{ group.name }} - Budget Tracker{% endblock %}
 
-        <h3>Add a New Member:</h3>
-        <!-- The form action uses url_for() to point to the add_member route -->
-        <form action="{{ url_for('main.add_member', group_id=group.id) }}" method="POST">
-            <input type="text" name="username" placeholder="Enter username" required>
-            <button type="submit" class="btn btn-primary">Add Member</button>
-        </form>
+{% block content %}
+    <div class="container mt-4">
+        <h2 class="mb-4">Manage Group: {{ group.name }}</h2>
         
-        <br>
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Current Members</h5>
+            </div>
+            <div class="card-body">
+                {% if group.members %}
+                    <ul class="list-group">
+                        {% for member in group.members %}
+                            {% set user = User.query.get(member.user_id) %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ user.username if user else 'Unknown User' }}
+                                {% if member.user_id == group.created_by %}
+                                    <span class="badge badge-primary">Creator</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No members yet. Add the first member below!</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Add a New Member</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('main.add_member', group_id=group.id) }}" method="POST">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" placeholder="Enter username" required>
+                        <small class="form-text text-muted">Enter the username of the user you want to add to this group.</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Member</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <a href="{{ url_for('main.view_group', group_id=group.id) }}" class="btn btn-info">View Group Details</a>
+            <a href="{{ url_for('main.view_groups') }}" class="btn btn-secondary">Back to Groups</a>
+        </div>
     </div>
 {% endblock %}

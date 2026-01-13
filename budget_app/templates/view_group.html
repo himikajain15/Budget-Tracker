@@ -1,17 +1,71 @@
 {% extends 'base.html' %}
 
+{% block title %}{{ group.name }} - Budget Tracker{% endblock %}
+
 {% block content %}
   <div class="container mt-5">
-    <h2>{{ group.name }} - Group Details</h2>
+    <h2 class="mb-4">{{ group.name }}</h2>
 
-    <h3>Members:</h3>
-    <ul>
-      {% for member in members %}
-        <li>{{ member.username }} (Balance: ${{ member.balance }})</li>
-      {% endfor %}
-    </ul>
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Group Members</h5>
+          </div>
+          <div class="card-body">
+            {% if members %}
+              <ul class="list-group">
+                {% for member in members %}
+                  {% set user = member_users.get(member.user_id) %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ user.username if user else 'Unknown User' }}
+                    {% if member_balances and member_balances.get(member.user_id) %}
+                      {% set balance = member_balances[member.user_id] %}
+                      <span class="badge {% if balance.balance > 0 %}badge-success{% elif balance.balance < 0 %}badge-danger{% else %}badge-secondary{% endif %}">
+                        ${{ "%.2f"|format(balance.balance) }}
+                      </span>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-muted">No members yet.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Shared Expenses</h5>
+          </div>
+          <div class="card-body">
+            {% if group.expenses %}
+              <ul class="list-group">
+                {% for expense in group.expenses %}
+                  <li class="list-group-item">
+                    <strong>{{ expense.description }}</strong><br>
+                    <small class="text-muted">
+                      Paid by: {{ expense_users.get(expense.id).username if expense_users.get(expense.id) else 'Unknown' }} | 
+                      Amount: ${{ "%.2f"|format(expense.amount) }} | 
+                      Date: {{ expense.created_at.strftime('%Y-%m-%d') if expense.created_at else 'N/A' }}
+                    </small>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-muted">No expenses yet.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <a href="{{ url_for('main.add_member', group_id=group.id) }}" class="btn btn-info mt-3">Add Member</a>
-    <a href="{{ url_for('main.add_expense', group_id=group.id) }}" class="btn btn-warning mt-3">Add Shared Expense</a>
+    <div class="mb-3">
+      <a href="{{ url_for('main.add_member', group_id=group.id) }}" class="btn btn-info">➕ Add Member</a>
+      <a href="{{ url_for('main.add_shared_expense', group_id=group.id) }}" class="btn btn-warning">💰 Add Shared Expense</a>
+      <a href="{{ url_for('main.view_groups') }}" class="btn btn-secondary">← Back to Groups</a>
+    </div>
   </div>
 {% endblock %}

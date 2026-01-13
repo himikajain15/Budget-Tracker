@@ -20,7 +20,9 @@
             <div class="card-body">
                 <h5 class="card-title">{{ current_user.username }}</h5>
                 <p class="card-text"><strong>Email:</strong> {{ current_user.email }}</p>
-                <p class="card-text"><strong>Preferred Currency:</strong> {{ current_user.currency or 'Not set' }}</p>
+                {% if current_user.profile and current_user.profile.currency %}
+                <p class="card-text"><strong>Preferred Currency:</strong> {{ current_user.profile.currency }}</p>
+                {% endif %}
             </div>
         </div>
     </div>

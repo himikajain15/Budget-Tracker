@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 
+{% block title %}{% if is_edit %}Edit{% else %}Add{% endif %} Expense - Budget Tracker{% endblock %}
+
 {% block content %}
-<!-- Add Expense Section -->
+<!-- Add/Edit Expense Section -->
 <div class="container mt-5">
     <div class="card shadow-lg p-4 rounded">
-        <h2 class="text-center mb-4">Add Expense</h2>
+        <h2 class="text-center mb-4">{% if is_edit %}Edit{% else %}Add{% endif %} Expense</h2>
 
         <!-- Expense Addition Form -->
         <form method="POST">
@@ -19,7 +21,8 @@
             <!-- Category Input Field -->
             <div class="mb-3">
                 {{ form.category.label(class="form-label") }}
-                {{ form.category(class="form-control form-control-lg") }}
+                {{ form.category(class="form-control form-control-lg", placeholder="Leave blank for auto-categorization") }}
+                <small class="form-text text-muted">Leave blank and fill description for AI-powered categorization</small>
             </div>
 
             <!-- Description Input Field -->
@@ -34,11 +37,41 @@
                 {{ form.date(class="form-control form-control-lg") }}
             </div>
 
+            <!-- Recurring Expense Checkbox -->
+            <div class="form-check mb-3">
+                {{ form.is_recurring(class="form-check-input") }}
+                {{ form.is_recurring.label(class="form-check-label") }}
+            </div>
+
+            <!-- Frequency Selector (shown when recurring is checked) -->
+            <div class="mb-3" id="frequency-field" style="display: none;">
+                {{ form.frequency.label(class="form-label") }}
+                {{ form.frequency(class="form-control form-control-lg") }}
+            </div>
+
             <!-- Submit Button -->
             <div class="text-center">
-                <button type="submit" class="btn btn-danger btn-lg px-4 py-2">Add Expense</button>
+                <button type="submit" class="btn btn-danger btn-lg px-4 py-2">{% if is_edit %}Update{% else %}Add{% endif %} Expense</button>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary btn-lg px-4 py-2 ml-2">Cancel</a>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    // Show/hide frequency field based on recurring checkbox
+    document.addEventListener('DOMContentLoaded', function() {
+        const recurringCheckbox = document.querySelector('#is_recurring');
+        const frequencyField = document.getElementById('frequency-field');
+        
+        if (recurringCheckbox) {
+            function toggleFrequency() {
+                frequencyField.style.display = recurringCheckbox.checked ? 'block' : 'none';
+            }
+            
+            recurringCheckbox.addEventListener('change', toggleFrequency);
+            toggleFrequency(); // Initial state
+        }
+    });
+</script>
 {% endblock %}
