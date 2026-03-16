@@ -6,6 +6,7 @@ from wtforms import StringField, PasswordField, SubmitField, FloatField, Boolean
 from wtforms.validators import DataRequired, Length, EqualTo, Email, Optional, NumberRange
 from flask_wtf.file import FileAllowed
 from flask_login import current_user
+from .currencies import CURRENCY_CHOICES
 
 
 # -------------------- Profile Update Form --------------------
@@ -19,6 +20,7 @@ class ProfileForm(FlaskForm):
 
     # Email field (required, must be in email format)
     email = StringField('Email', validators=[DataRequired(), Email()])
+    preferred_currency = SelectField('Preferred Currency', choices=CURRENCY_CHOICES, validators=[DataRequired()])
 
     # Password field (optional for updates)
     password = PasswordField('New Password (leave blank to keep current)', validators=[Optional(), Length(min=6)])
@@ -90,6 +92,8 @@ class IncomeForm(FlaskForm):
     # Source field (required, should be a string)
     source = StringField('Source', validators=[DataRequired()])
 
+    currency_code = SelectField('Currency', choices=CURRENCY_CHOICES, validators=[DataRequired()])
+
     # Description field (optional)
     description = StringField('Description')
 
@@ -119,6 +123,8 @@ class ExpenseForm(FlaskForm):
 
     # Category field (optional, can be auto-predicted from description)
     category = StringField('Category', validators=[Optional()])
+
+    currency_code = SelectField('Currency', choices=CURRENCY_CHOICES, validators=[DataRequired()])
 
     # Description field (optional)
     description = TextAreaField('Description', validators=[Optional()])
@@ -197,6 +203,8 @@ class AddSharedExpenseForm(FlaskForm):
 
     # Amount field (required, should be a float)
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0.01)])
+
+    currency_code = SelectField('Currency', choices=CURRENCY_CHOICES, validators=[DataRequired()])
 
     # Paid by field (required, selects the user who paid)
     paid_by = SelectField('Paid By', coerce=int, validators=[DataRequired()])

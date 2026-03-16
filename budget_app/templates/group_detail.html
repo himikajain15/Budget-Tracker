@@ -3,51 +3,55 @@
 {% block title %}Manage {{ group.name }} - Budget Tracker{% endblock %}
 
 {% block content %}
-    <div class="container mt-4">
-        <h2 class="mb-4">Manage Group: {{ group.name }}</h2>
-        
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Current Members</h5>
-            </div>
-            <div class="card-body">
-                {% if group.members %}
-                    <ul class="list-group">
-                        {% for member in group.members %}
-                            {% set user = member_users.get(member.user_id) %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ user.username if user else 'Unknown User' }}
-                                {% if member.user_id == group.created_by %}
-                                    <span class="badge badge-primary">Creator</span>
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-muted">No members yet. Add the first member below!</p>
-                {% endif %}
-            </div>
-        </div>
+<section class="section-heading">
+  <div>
+    <p class="eyebrow">Group administration</p>
+    <h1>Manage {{ group.name }}</h1>
+    <p class="muted-copy">Keep membership clean, make sure the right people are inside the split, and move back to the live ledger when needed.</p>
+  </div>
+</section>
 
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Add a New Member</h5>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('main.add_member', group_id=group.id) }}" method="POST">
-                    <div class="form-group">
-                        <label for="username">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" placeholder="Enter username" required>
-                        <small class="form-text text-muted">Enter the username of the user you want to add to this group.</small>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Add Member</button>
-                </form>
-            </div>
-        </div>
-        
-        <div class="mb-3">
-            <a href="{{ url_for('main.view_group', group_id=group.id) }}" class="btn btn-info">View Group Details</a>
-            <a href="{{ url_for('main.view_groups') }}" class="btn btn-secondary">Back to Groups</a>
-        </div>
+<section class="split-layout">
+  <div class="surface-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Members</p>
+        <h2>Current team</h2>
+      </div>
     </div>
+    <div class="member-list">
+      {% for member in group.members %}
+      {% set user = member_users.get(member.user_id) %}
+      <div class="member-row">
+        <div>
+          <strong>{{ user.username if user else 'Unknown User' }}</strong>
+          <p class="muted-copy">{{ user.email if user else 'No email available' }}</p>
+        </div>
+        {% if member.user_id == group.created_by %}
+        <span class="inline-chip inline-chip--positive">Owner</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="surface-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Member controls</p>
+        <h2>Add a new member</h2>
+      </div>
+    </div>
+    <form action="{{ url_for('main.add_member', group_id=group.id) }}" method="POST" class="form-grid">
+      <div class="form-grid__full">
+        <label for="username" class="form-label">Username</label>
+        <input type="text" class="form-control" id="username" name="username" placeholder="Enter the username to invite" required>
+      </div>
+      <div class="form-actions form-grid__full">
+        <button type="submit" class="pill-button">Add member</button>
+        <a href="{{ url_for('main.view_group', group_id=group.id) }}" class="pill-button pill-button--muted">Open ledger</a>
+      </div>
+    </form>
+  </div>
+</section>
 {% endblock %}

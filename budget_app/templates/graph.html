@@ -1,146 +1,85 @@
 {% extends 'base.html' %}
 
-{% block title %}Spending Insights - Budget Tracker{% endblock %}
+{% block title %}Insights - Budget Tracker{% endblock %}
 
 {% block content %}
-<div class="main-container">
-    <div class="mb-4">
-        <h2 class="mb-2" style="font-family: 'Poppins', sans-serif; font-weight: 700; color: var(--text-primary);">Spending Insights</h2>
-        <p class="text-muted">Visualize your spending patterns and track your financial health</p>
-    </div>
+<section class="section-heading">
+  <div>
+    <p class="eyebrow">Analytics</p>
+    <h1>Spending insights</h1>
+    <p class="muted-copy">Category analysis now respects currency labels, so your chart still stays readable even if you spend across markets.</p>
+  </div>
+</section>
 
-    {% if categories and amounts %}
-    <div class="card mb-4">
-        <div class="card-header">
-            Expenses by Category
-        </div>
-        <div class="card-body">
-            <canvas id="expenseChart" height="80"></canvas>
-        </div>
+{% if categories and amounts %}
+<section class="surface-card">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Chart</p>
+      <h2>Expenses by category and currency</h2>
     </div>
-    {% else %}
-    <div class="card mb-4">
-        <div class="card-body text-center py-5">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); margin-bottom: 16px;">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-            </svg>
-            <h5 style="color: var(--text-secondary); margin-bottom: 8px;">No Data Available</h5>
-            <p style="color: var(--text-secondary);">Start adding expenses to see your spending insights here.</p>
-            <a href="{{ url_for('main.add_expense') }}" class="btn btn-primary mt-3">Add Your First Expense</a>
-        </div>
-    </div>
-    {% endif %}
+  </div>
+  <canvas id="expenseChart" height="90"></canvas>
+</section>
+{% endif %}
 
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <div class="stats-card success">
-                <div class="stats-label">Total Income</div>
-                <div class="stats-value">${{ "%.2f"|format(total_income) }}</div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="stats-card danger">
-                <div class="stats-label">Total Expenses</div>
-                <div class="stats-value">${{ "%.2f"|format(total_expense) }}</div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="stats-card info">
-                <div class="stats-label">Most Spent Category</div>
-                <div class="stats-value" style="font-size: 20px;">{{ top_category }}</div>
-            </div>
-        </div>
-    </div>
+<section class="stat-grid">
+  <article class="stat-card">
+    <p class="eyebrow">Total income</p>
+    <h3>{{ '%.2f'|format(total_income) }}</h3>
+  </article>
+  <article class="stat-card">
+    <p class="eyebrow">Total expense</p>
+    <h3>{{ '%.2f'|format(total_expense) }}</h3>
+  </article>
+  <article class="stat-card">
+    <p class="eyebrow">Top category</p>
+    <h3>{{ top_category }}</h3>
+  </article>
+</section>
 
-    <div class="mt-4">
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
-    </div>
-</div>
+{% if not categories or not amounts %}
+<section class="surface-card empty-state">
+  <h3>No analytics yet</h3>
+  <p>Add a few expense records to unlock category insights.</p>
+</section>
+{% endif %}
 
 {% if categories and amounts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    const ctx = document.getElementById('expenseChart').getContext('2d');
-    
-    // Group categories and sum amounts
-    const categoryMap = {};
-    {% for i in range(categories|length) %}
-        const cat = {{ categories[i] | tojson }};
-        const amt = {{ amounts[i] }};
-        categoryMap[cat] = (categoryMap[cat] || 0) + amt;
-    {% endfor %}
-    
-    const uniqueCategories = Object.keys(categoryMap);
-    const categoryAmounts = uniqueCategories.map(cat => categoryMap[cat]);
-    
-    const colors = [
-        'rgba(99, 102, 241, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
-        'rgba(16, 185, 129, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(139, 92, 246, 0.8)',
-        'rgba(236, 72, 153, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-    ];
-    
-    const expenseChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: uniqueCategories,
-            datasets: [{
-                label: 'Expenses ($)',
-                data: categoryAmounts,
-                backgroundColor: colors.slice(0, uniqueCategories.length),
-                borderColor: colors.slice(0, uniqueCategories.length).map(c => c.replace('0.8', '1')),
-                borderWidth: 2,
-                borderRadius: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    titleFont: {
-                        size: 14,
-                        weight: 'bold'
-                    },
-                    bodyFont: {
-                        size: 13
-                    },
-                    callbacks: {
-                        label: function(context) {
-                            return '$' + context.parsed.y.toFixed(2);
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return '$' + value.toFixed(0);
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    }
-                }
-            }
-        }
-    });
+  const ctx = document.getElementById('expenseChart').getContext('2d');
+  const categoryMap = {};
+  {% for i in range(categories|length) %}
+  const cat = {{ categories[i] | tojson }};
+  const amt = {{ amounts[i] }};
+  categoryMap[cat] = (categoryMap[cat] || 0) + amt;
+  {% endfor %}
+
+  const labels = Object.keys(categoryMap);
+  const values = labels.map(label => categoryMap[label]);
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Spending',
+        data: values,
+        backgroundColor: ['#165dff', '#f97316', '#0f9d58', '#e11d48', '#8b5cf6', '#14b8a6', '#facc15'],
+        borderRadius: 12
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
 </script>
 {% endif %}
 {% endblock %}

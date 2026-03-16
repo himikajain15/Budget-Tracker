@@ -3,69 +3,97 @@
 {% block title %}{{ group.name }} - Budget Tracker{% endblock %}
 
 {% block content %}
-  <div class="container mt-5">
-    <h2 class="mb-4">{{ group.name }}</h2>
+<section class="section-heading">
+  <div>
+    <p class="eyebrow">Shared ledger</p>
+    <h1>{{ group.name }}</h1>
+    <p class="muted-copy">See who paid, who owes, and what settlements would close the loop fastest.</p>
+  </div>
+  <div class="hero-actions">
+    <a href="{{ url_for('main.add_shared_expense', group_id=group.id) }}" class="pill-button">Add shared expense</a>
+    <a href="{{ url_for('main.group_detail', group_id=group.id) }}" class="pill-button pill-button--muted">Manage group</a>
+  </div>
+</section>
 
-    <div class="row mb-4">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="mb-0">Group Members</h5>
-          </div>
-          <div class="card-body">
-            {% if members %}
-              <ul class="list-group">
-                {% for member in members %}
-                  {% set user = member_users.get(member.user_id) %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    {{ user.username if user else 'Unknown User' }}
-                    {% if member_balances and member_balances.get(member.user_id) %}
-                      {% set balance = member_balances[member.user_id] %}
-                      <span class="badge {% if balance.balance > 0 %}badge-success{% elif balance.balance < 0 %}badge-danger{% else %}badge-secondary{% endif %}">
-                        ${{ "%.2f"|format(balance.balance) }}
-                      </span>
-                    {% endif %}
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="text-muted">No members yet.</p>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-      
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="mb-0">Shared Expenses</h5>
-          </div>
-          <div class="card-body">
-            {% if group.expenses %}
-              <ul class="list-group">
-                {% for expense in group.expenses %}
-                  <li class="list-group-item">
-                    <strong>{{ expense.description }}</strong><br>
-                    <small class="text-muted">
-                      Paid by: {{ expense_users.get(expense.id).username if expense_users.get(expense.id) else 'Unknown' }} | 
-                      Amount: ${{ "%.2f"|format(expense.amount) }} | 
-                      Date: {{ expense.created_at.strftime('%Y-%m-%d') if expense.created_at else 'N/A' }}
-                    </small>
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="text-muted">No expenses yet.</p>
-            {% endif %}
-          </div>
-        </div>
+<section class="split-layout">
+  <div class="surface-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Member balances</p>
+        <h2>Who owes what</h2>
       </div>
     </div>
-
-    <div class="mb-3">
-      <a href="{{ url_for('main.add_member', group_id=group.id) }}" class="btn btn-info">➕ Add Member</a>
-      <a href="{{ url_for('main.add_shared_expense', group_id=group.id) }}" class="btn btn-warning">💰 Add Shared Expense</a>
-      <a href="{{ url_for('main.view_groups') }}" class="btn btn-secondary">← Back to Groups</a>
+    <div class="member-list">
+      {% for row in member_balance_rows %}
+      <div class="member-row">
+        <div>
+          <strong>{{ row.user.username }}</strong>
+          <p class="muted-copy">{{ row.user.email }}</p>
+        </div>
+        <div class="balance-stack">
+          {% for currency_code, amount in row.balances.items() %}
+          <span class="inline-chip {% if amount > 0 %}inline-chip--positive{% elif amount < 0 %}inline-chip--negative{% endif %}">
+            {{ currency_code }} {{ currency_symbols.get(currency_code, currency_code) }}{{ '%.2f'|format(amount) }}
+          </span>
+          {% else %}
+          <span class="inline-chip">Settled</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
     </div>
   </div>
+
+  <div class="surface-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Settlement engine</p>
+        <h2>Suggested repayments</h2>
+      </div>
+    </div>
+    <div class="settlement-list">
+      {% for item in settlement_suggestions %}
+      <div class="settlement-item">
+        <strong>{{ item.from_user }}</strong>
+        <span>pays</span>
+        <strong>{{ item.to_user }}</strong>
+        <span>{{ item.currency_code }} {{ currency_symbols.get(item.currency_code, item.currency_code) }}{{ '%.2f'|format(item.amount) }}</span>
+      </div>
+      {% else %}
+      <div class="empty-state compact">
+        <h3>Everything looks settled</h3>
+        <p>No additional repayment suggestions are needed right now.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="surface-card">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Expense feed</p>
+      <h2>Recent shared expenses</h2>
+    </div>
+  </div>
+  <div class="timeline-list">
+    {% for expense in expense_feed %}
+    <div class="timeline-item">
+      <div class="timeline-item__meta">
+        <strong>{{ expense.description }}</strong>
+        <span>{{ expense.created_at.strftime('%Y-%m-%d') if expense.created_at else 'N/A' }}</span>
+      </div>
+      <p>Paid by {{ expense.paid_by_name }}. Split evenly at {{ currency_symbols.get(expense.currency_code, expense.currency_code) }}{{ '%.2f'|format(expense.split_amount) }} per member.</p>
+      <div class="timeline-item__amount">
+        {{ expense.currency_code }} {{ currency_symbols.get(expense.currency_code, expense.currency_code) }}{{ '%.2f'|format(expense.amount) }}
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <h3>No shared expenses yet</h3>
+      <p>Add the first shared expense to start tracking group balances.</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

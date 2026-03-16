@@ -41,6 +41,7 @@ class Income(db.Model):
     source = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255))
     date = db.Column(db.Date, nullable=False)
+    currency_code = db.Column(db.String(3), nullable=False, default='USD')
     is_recurring = db.Column(db.Boolean, default=False)
     frequency = db.Column(db.String(20), default='none')  # daily, weekly, monthly, etc.
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -56,6 +57,7 @@ class Expense(db.Model):
     category = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255))
     date = db.Column(db.DateTime, default=datetime.utcnow)
+    currency_code = db.Column(db.String(3), nullable=False, default='USD')
     is_recurring = db.Column(db.Boolean, default=False)
     frequency = db.Column(db.String(20), default='none')  # daily, weekly, monthly, etc.
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -126,6 +128,7 @@ class SharedExpense(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
     description = db.Column(db.String(255), nullable=False)
     amount = db.Column(db.Float, nullable=False)
+    currency_code = db.Column(db.String(3), nullable=False, default='USD')
     paid_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

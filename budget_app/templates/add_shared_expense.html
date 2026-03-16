@@ -1,48 +1,44 @@
-<!-- templates/add_shared_expense.html -->
-
 {% extends "base.html" %}
+
 {% block title %}Add Shared Expense{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4 text-primary">Add Shared Expense to "{{ group.name }}"</h2>
-    
-    <!-- Flash messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+<section class="form-shell">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Shared expense</p>
+      <h1>Add an expense to {{ group.name }}</h1>
+      <p class="muted-copy">Record who paid, which currency the expense used, and let the app keep member balances aligned.</p>
+    </div>
+  </div>
 
-    <!-- Expense Form -->
-    <form method="POST">
-        {{ form.hidden_tag() }}
+  <form method="POST" class="surface-card form-grid">
+    {{ form.hidden_tag() }}
 
-        <!-- Description -->
-        <div class="mb-3">
-            {{ form.description.label(class="form-label") }}
-            {{ form.description(class="form-control", placeholder="Enter expense description") }}
-        </div>
+    <div class="form-grid__full">
+      {{ form.description.label(class="form-label") }}
+      {{ form.description(class="form-control", placeholder="Dinner, hotel booking, cab, groceries") }}
+    </div>
 
-        <!-- Amount -->
-        <div class="mb-3">
-            {{ form.amount.label(class="form-label") }}
-            {{ form.amount(class="form-control", placeholder="Enter total amount") }}
-        </div>
+    <div>
+      {{ form.amount.label(class="form-label") }}
+      {{ form.amount(class="form-control", placeholder="Total amount") }}
+    </div>
 
-        <!-- Paid By -->
-        <div class="mb-3">
-            {{ form.paid_by.label(class="form-label") }}
-            {{ form.paid_by(class="form-select") }}
-        </div>
+    <div>
+      {{ form.currency_code.label(class="form-label") }}
+      {{ form.currency_code(class="form-control") }}
+    </div>
 
-        <!-- Submit Button -->
-        <button type="submit" class="btn btn-success">Add Shared Expense</button>
+    <div class="form-grid__full">
+      {{ form.paid_by.label(class="form-label") }}
+      {{ form.paid_by(class="form-control") }}
+    </div>
 
-        <!-- Back Button -->
-        <a href="{{ url_for('main.view_group', group_id=group.id) }}" class="btn btn-secondary ms-2">Back to Group</a>
-    </form>
-</div>
+    <div class="form-actions form-grid__full">
+      <button type="submit" class="pill-button">Add shared expense</button>
+      <a href="{{ url_for('main.view_group', group_id=group.id) }}" class="pill-button pill-button--muted">Back to group</a>
+    </div>
+  </form>
+</section>
 {% endblock %}

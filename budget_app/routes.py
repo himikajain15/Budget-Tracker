@@ -4,6 +4,7 @@
 import os
 import secrets
 import csv
+from collections import Counter, defaultdict
 from datetime import datetime, date
 from io import BytesIO, StringIO
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, Response
@@ -17,12 +18,140 @@ from .forms import ProfileForm
 
 from . import db
 from .models import User, Income, Expense, UserProfile, Group, SharedExpense, GroupMember, ExpenseShare
+from .currencies import CURRENCY_SYMBOLS
 from .forms import (
     RegistrationForm, LoginForm, IncomeForm, ExpenseForm,
     ProfileForm, ExportForm, CreateGroupForm, AddMemberForm, AddSharedExpenseForm
 )
 
 main = Blueprint('main', __name__, template_folder='templates')
+
+
+def _sum_amounts_by_currency(records):
+    totals = defaultdict(float)
+    for record in records:
+        totals[getattr(record, 'currency_code', 'USD') or 'USD'] += record.amount
+    return dict(sorted(totals.items()))
+
+
+def _preferred_currency(user):
+    if getattr(user, 'profile', None) and user.profile.currency:
+        return user.profile.currency
+    return 'USD'
+
+
+def _recent_transactions(incomes, expenses):
+    timeline = []
+
+    for income in incomes:
+        timeline.append({
+            'kind': 'income',
+            'title': income.source,
+            'description': income.description or 'Income added',
+            'amount': income.amount,
+            'currency_code': income.currency_code or 'USD',
+            'date': income.date,
+        })
+
+    for expense in expenses:
+        timeline.append({
+            'kind': 'expense',
+            'title': expense.category,
+            'description': expense.description or 'Expense logged',
+            'amount': expense.amount,
+            'currency_code': expense.currency_code or 'USD',
+            'date': expense.date,
+        })
+
+    timeline.sort(key=lambda item: item['date'] or datetime.min.date(), reverse=True)
+    return timeline[:8]
+
+
+def _build_group_snapshot(group):
+    member_users = {}
+    balances = defaultdict(lambda: defaultdict(float))
+    expense_feed = []
+
+    for member in group.members:
+        if member.user:
+            member_users[member.user_id] = member.user
+
+    for expense in sorted(group.expenses, key=lambda item: item.created_at or datetime.min, reverse=True):
+        currency_code = expense.currency_code or 'USD'
+        shares = list(expense.shares)
+        split_count = len(shares) or max(len(group.members), 1)
+        split_amount = sum(share.amount_owed for share in shares) / split_count if shares else expense.amount / split_count
+
+        for share in shares:
+            balances[share.user_id][currency_code] -= share.amount_owed
+
+        balances[expense.paid_by][currency_code] += expense.amount
+
+        payer = member_users.get(expense.paid_by)
+        expense_feed.append({
+            'id': expense.id,
+            'description': expense.description,
+            'amount': expense.amount,
+            'currency_code': currency_code,
+            'split_amount': split_amount,
+            'paid_by_name': payer.username if payer else 'Unknown',
+            'created_at': expense.created_at,
+        })
+
+    member_balance_rows = []
+    currency_totals = defaultdict(float)
+
+    for user_id, user in member_users.items():
+        per_currency = dict(sorted(balances[user_id].items()))
+        for currency_code, value in per_currency.items():
+            currency_totals[currency_code] += value
+
+        member_balance_rows.append({
+            'user': user,
+            'balances': per_currency,
+        })
+
+    settlement_suggestions = []
+    for currency_code in sorted({code for row in member_balance_rows for code in row['balances']}):
+        creditors = []
+        debtors = []
+
+        for row in member_balance_rows:
+            balance_value = row['balances'].get(currency_code, 0)
+            if balance_value > 0:
+                creditors.append({'username': row['user'].username, 'amount': balance_value})
+            elif balance_value < 0:
+                debtors.append({'username': row['user'].username, 'amount': -balance_value})
+
+        creditors.sort(key=lambda item: item['amount'], reverse=True)
+        debtors.sort(key=lambda item: item['amount'], reverse=True)
+
+        creditor_idx = 0
+        debtor_idx = 0
+        while creditor_idx < len(creditors) and debtor_idx < len(debtors):
+            transfer_amount = min(creditors[creditor_idx]['amount'], debtors[debtor_idx]['amount'])
+            settlement_suggestions.append({
+                'currency_code': currency_code,
+                'from_user': debtors[debtor_idx]['username'],
+                'to_user': creditors[creditor_idx]['username'],
+                'amount': round(transfer_amount, 2),
+            })
+
+            creditors[creditor_idx]['amount'] -= transfer_amount
+            debtors[debtor_idx]['amount'] -= transfer_amount
+
+            if creditors[creditor_idx]['amount'] <= 0.009:
+                creditor_idx += 1
+            if debtors[debtor_idx]['amount'] <= 0.009:
+                debtor_idx += 1
+
+    return {
+        'member_users': member_users,
+        'member_balance_rows': member_balance_rows,
+        'expense_feed': expense_feed,
+        'settlement_suggestions': settlement_suggestions,
+        'currency_symbols': CURRENCY_SYMBOLS,
+    }
 
 
 # -------------------- Helper: Save Profile Picture --------------------
@@ -60,6 +189,8 @@ def register():
             profile_picture=picture_file
         )
         db.session.add(new_user)
+        db.session.flush()
+        db.session.add(UserProfile(user_id=new_user.id, currency='USD'))
         db.session.commit()
         flash('Account created successfully! You can now log in.', 'success')
         return redirect(url_for('main.login'))
@@ -105,11 +236,34 @@ def toggle_dark_mode():
 def dashboard():
     incomes = Income.query.filter_by(user_id=current_user.id).all()
     expenses = Expense.query.filter_by(user_id=current_user.id).all()
-    total_income = sum(i.amount for i in incomes)
-    total_expense = sum(e.amount for e in expenses)
-    balance = total_income - total_expense
-    return render_template('dashboard.html', incomes=incomes, expenses=expenses,
-                           total_income=total_income, total_expense=total_expense, balance=balance)
+    income_totals = _sum_amounts_by_currency(incomes)
+    expense_totals = _sum_amounts_by_currency(expenses)
+    balance_totals = {}
+    for currency_code in set(income_totals) | set(expense_totals):
+        balance_totals[currency_code] = income_totals.get(currency_code, 0) - expense_totals.get(currency_code, 0)
+
+    active_groups = Group.query.join(GroupMember).filter(GroupMember.user_id == current_user.id).count()
+    recent_transactions = _recent_transactions(incomes, expenses)
+    preferred_currency = _preferred_currency(current_user)
+    savings_rate = 0
+    preferred_income = income_totals.get(preferred_currency, 0)
+    preferred_expense = expense_totals.get(preferred_currency, 0)
+    if preferred_income:
+        savings_rate = round(max(preferred_income - preferred_expense, 0) / preferred_income * 100, 1)
+
+    return render_template(
+        'dashboard.html',
+        incomes=sorted(incomes, key=lambda item: item.date or date.min, reverse=True),
+        expenses=sorted(expenses, key=lambda item: item.date or datetime.min, reverse=True),
+        income_totals=income_totals,
+        expense_totals=expense_totals,
+        balance_totals=balance_totals,
+        preferred_currency=preferred_currency,
+        savings_rate=savings_rate,
+        active_groups=active_groups,
+        recent_transactions=recent_transactions,
+        currency_symbols=CURRENCY_SYMBOLS,
+    )
 
 
 # -------------------- Add Income --------------------
@@ -117,10 +271,12 @@ def dashboard():
 @login_required
 def add_income():
     form = IncomeForm()
+    form.currency_code.data = form.currency_code.data or _preferred_currency(current_user)
     if form.validate_on_submit():
         income = Income(
             amount=form.amount.data,
             source=form.source.data,
+            currency_code=form.currency_code.data,
             description=form.description.data,
             date=form.date.data,
             is_recurring=form.is_recurring.data,
@@ -139,6 +295,7 @@ def add_income():
 @login_required
 def add_expense():
     form = ExpenseForm()
+    form.currency_code.data = form.currency_code.data or _preferred_currency(current_user)
     if form.validate_on_submit():
         # Use ML to predict category if description provided and category is empty
         if form.description.data and not form.category.data:
@@ -153,6 +310,7 @@ def add_expense():
         expense = Expense(
             amount=form.amount.data,
             category=category,
+            currency_code=form.currency_code.data,
             description=form.description.data,
             date=form.date.data or datetime.utcnow().date(),
             is_recurring=form.is_recurring.data,
@@ -178,6 +336,7 @@ def edit_expense(expense_id):
     form = ExpenseForm(obj=expense)
     if form.validate_on_submit():
         expense.amount = form.amount.data
+        expense.currency_code = form.currency_code.data
         # Use ML to predict category if description provided and category is empty
         if form.description.data and not form.category.data:
             from .ml_utils import predict_category
@@ -225,6 +384,7 @@ def edit_income(income_id):
     if form.validate_on_submit():
         income.amount = form.amount.data
         income.source = form.source.data
+        income.currency_code = form.currency_code.data
         income.description = form.description.data
         income.date = form.date.data
         income.is_recurring = form.is_recurring.data
@@ -260,10 +420,16 @@ def profile():
     if request.method == 'GET':
         form.username.data = current_user.username
         form.email.data = current_user.email
+        form.preferred_currency.data = _preferred_currency(current_user)
 
     if form.validate_on_submit():
         current_user.username = form.username.data
         current_user.email = form.email.data
+        if not current_user.profile:
+            db.session.add(UserProfile(user_id=current_user.id, currency=form.preferred_currency.data))
+            db.session.flush()
+        else:
+            current_user.profile.currency = form.preferred_currency.data
 
         # Update password only if provided
         if form.password.data:
@@ -288,7 +454,7 @@ def graph():
     expenses = Expense.query.filter_by(user_id=current_user.id).all()
 
     # Process the data to get categories and amounts
-    categories = [expense.category for expense in expenses]
+    categories = [f"{expense.category} ({expense.currency_code or 'USD'})" for expense in expenses]
     amounts = [expense.amount for expense in expenses]
 
     # Calculate additional insights
@@ -297,14 +463,14 @@ def graph():
     
     # Handle empty categories list
     if categories:
-        from collections import Counter
         category_counts = Counter(categories)
         top_category = category_counts.most_common(1)[0][0] if category_counts else "N/A"
     else:
         top_category = "N/A"
 
     return render_template('graph.html', categories=categories, amounts=amounts,
-                           total_income=total_income, total_expense=total_expense, top_category=top_category)
+                           total_income=total_income, total_expense=total_expense, top_category=top_category,
+                           currency_symbols=CURRENCY_SYMBOLS)
 
 
 # -------------------- Export --------------------
@@ -338,6 +504,7 @@ def export():
                 'category': expense.category,
                 'description': expense.description or '',
                 'amount': expense.amount,
+                'currency_code': expense.currency_code or 'USD',
                 'date': expense.date.strftime('%Y-%m-%d') if isinstance(expense.date, datetime) else str(expense.date)
             })
         
@@ -347,12 +514,13 @@ def export():
                 'category': income.source,
                 'description': income.description or '',
                 'amount': income.amount,
+                'currency_code': income.currency_code or 'USD',
                 'date': income.date.strftime('%Y-%m-%d') if isinstance(income.date, date) else str(income.date)
             })
 
         if export_format == 'csv':
             output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=['type', 'category', 'description', 'amount', 'date'])
+            writer = csv.DictWriter(output, fieldnames=['type', 'category', 'description', 'amount', 'currency_code', 'date'])
             writer.writeheader()
             writer.writerows(data)
             csv_data = output.getvalue().encode('utf-8')
@@ -369,7 +537,7 @@ def export():
                 if y < 50:  # New page if needed
                     c.showPage()
                     y = 750
-                c.drawString(100, y, f"{entry['type']}: {entry['category']} - {entry['description']} - ${entry['amount']} - {entry['date']}")
+                c.drawString(100, y, f"{entry['type']}: {entry['category']} - {entry['description']} - {entry['currency_code']} {entry['amount']} - {entry['date']}")
                 y -= 20
             c.showPage()
             c.save()
@@ -392,6 +560,8 @@ def create_group():
         group_name = form.name.data
         new_group = Group(name=group_name, created_by=current_user.id)  # Use 'created_by' here
         db.session.add(new_group)
+        db.session.flush()
+        db.session.add(GroupMember(group_id=new_group.id, user_id=current_user.id))
         db.session.commit()
         flash(f'Group "{group_name}" created successfully!', 'success')
         return redirect(url_for('main.view_group', group_id=new_group.id))
@@ -410,6 +580,10 @@ def add_member(group_id):
     if not group:
         flash("Group not found.", "danger")
         return redirect(url_for('main.dashboard'))
+
+    if group.created_by != current_user.id:
+        flash("Only the group owner can add members.", "danger")
+        return redirect(url_for('main.view_group', group_id=group_id))
 
     if not user:
         flash("User not found.", "danger")
@@ -439,13 +613,18 @@ def group_detail(group_id):
         flash("Group not found.", "danger")
         return redirect(url_for('main.dashboard'))
 
+    is_member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not is_member and group.created_by != current_user.id:
+        flash('You do not have access to manage this group.', 'danger')
+        return redirect(url_for('main.view_groups'))
+
     member_users = {}
     for member in group.members:
         user = User.query.get(member.user_id)
         if user:
             member_users[member.user_id] = user
 
-    return render_template('group_detail.html', group=group, member_users=member_users)
+    return render_template('group_detail.html', group=group, member_users=member_users, currency_symbols=CURRENCY_SYMBOLS)
 
 
 # -------------------- View Groups --------------------
@@ -456,8 +635,17 @@ def view_groups():
     user_groups = Group.query.join(GroupMember).filter(GroupMember.user_id == current_user.id).all()
     # Also include groups created by user
     created_groups = Group.query.filter_by(created_by=current_user.id).all()
-    all_groups = list(set(user_groups + created_groups))
-    return render_template('view_groups.html', groups=all_groups)
+    all_groups = list({group.id: group for group in user_groups + created_groups}.values())
+    group_cards = []
+    for group in all_groups:
+        snapshot = _build_group_snapshot(group)
+        group_cards.append({
+            'group': group,
+            'member_count': len(snapshot['member_users']),
+            'expense_count': len(group.expenses),
+            'currencies': sorted({expense.currency_code or 'USD' for expense in group.expenses}),
+        })
+    return render_template('view_groups.html', group_cards=group_cards, currency_symbols=CURRENCY_SYMBOLS)
 
 
 # -------------------- View Group --------------------
@@ -471,30 +659,18 @@ def view_group(group_id):
         flash('You do not have access to this group.', 'danger')
         return redirect(url_for('main.view_groups'))
     
-    # Calculate balances for each member and get user objects
-    member_balances = {}
-    member_users = {}
-    for member in group.members:
-        user = User.query.get(member.user_id)
-        if user:
-            member_users[member.user_id] = user
-            total_owed = sum(share.amount_owed for expense in group.expenses for share in expense.shares if share.user_id == user.id)
-            total_paid = sum(expense.amount for expense in group.expenses if expense.paid_by == user.id)
-            member_balances[user.id] = {
-                'username': user.username,
-                'owed': total_owed,
-                'paid': total_paid,
-                'balance': total_paid - total_owed
-            }
-    
-    # Get user objects for expenses
-    expense_users = {}
-    for expense in group.expenses:
-        payer = User.query.get(expense.paid_by)
-        if payer:
-            expense_users[expense.id] = payer
-    
-    return render_template('view_group.html', group=group, members=group.members, member_balances=member_balances, member_users=member_users, expense_users=expense_users)
+    snapshot = _build_group_snapshot(group)
+
+    return render_template(
+        'view_group.html',
+        group=group,
+        members=group.members,
+        member_balance_rows=snapshot['member_balance_rows'],
+        member_users=snapshot['member_users'],
+        expense_feed=snapshot['expense_feed'],
+        settlement_suggestions=snapshot['settlement_suggestions'],
+        currency_symbols=CURRENCY_SYMBOLS,
+    )
 
 
 # -------------------- Add Shared Expense --------------------
@@ -505,11 +681,12 @@ def add_shared_expense(group_id):
     
     # Check if user is a member of the group
     is_member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first()
-    if not is_member:
+    if not is_member and group.created_by != current_user.id:
         flash('You must be a member of this group to add expenses.', 'danger')
         return redirect(url_for('main.view_group', group_id=group_id))
     
     form = AddSharedExpenseForm()
+    form.currency_code.data = form.currency_code.data or _preferred_currency(current_user)
     # Get actual user objects from group members
     member_users = [User.query.get(member.user_id) for member in group.members if User.query.get(member.user_id)]
     form.paid_by.choices = [(user.id, user.username) for user in member_users]
@@ -518,8 +695,9 @@ def add_shared_expense(group_id):
         description = form.description.data
         amount = form.amount.data
         paid_by_id = form.paid_by.data
+        currency_code = form.currency_code.data
 
-        expense = SharedExpense(description=description, amount=amount, group_id=group.id, paid_by=paid_by_id)
+        expense = SharedExpense(description=description, amount=amount, currency_code=currency_code, group_id=group.id, paid_by=paid_by_id)
         db.session.add(expense)
         db.session.flush()  # Get the expense ID
 

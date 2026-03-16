@@ -2,6 +2,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
+from sqlalchemy import inspect, text
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -48,5 +49,31 @@ def create_app():
     # Ensure tables exist for fresh deployments where migrations haven't been run.
     with app.app_context():
         db.create_all()
+        _ensure_runtime_columns()
 
     return app
+
+
+def _ensure_runtime_columns():
+    inspector = inspect(db.engine)
+    required_columns = {
+        'income': {
+            'currency_code': "ALTER TABLE income ADD COLUMN currency_code VARCHAR(3) DEFAULT 'USD' NOT NULL"
+        },
+        'expense': {
+            'currency_code': "ALTER TABLE expense ADD COLUMN currency_code VARCHAR(3) DEFAULT 'USD' NOT NULL"
+        },
+        'shared_expense': {
+            'currency_code': "ALTER TABLE shared_expense ADD COLUMN currency_code VARCHAR(3) DEFAULT 'USD' NOT NULL"
+        },
+    }
+
+    for table_name, columns in required_columns.items():
+        if not inspector.has_table(table_name):
+            continue
+
+        existing_columns = {column['name'] for column in inspector.get_columns(table_name)}
+        for column_name, statement in columns.items():
+            if column_name not in existing_columns:
+                db.session.execute(text(statement))
+                db.session.commit()

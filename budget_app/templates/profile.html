@@ -1,75 +1,68 @@
 {% extends 'base.html' %}
 
+{% block title %}Profile - Budget Tracker{% endblock %}
+
 {% block content %}
-<h2>User Profile</h2>
+<section class="section-heading">
+  <div>
+    <p class="eyebrow">Personal settings</p>
+    <h1>Profile and preferences</h1>
+    <p class="muted-copy">Set your preferred currency and keep account details current so the rest of the product can personalize around you.</p>
+  </div>
+</section>
 
-<!-- Display user profile information -->
-<div class="card mb-3" style="max-width: 540px;">
-    <div class="row g-0">
-        <div class="col-md-4">
-            <!-- Display profile picture -->
-            {% if current_user.profile_picture %}
-                <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_picture) }}"
-                     class="img-fluid rounded-start" alt="Profile Picture">
-            {% else %}
-                <img src="{{ url_for('static', filename='profile_pics/default.png') }}"
-                     class="img-fluid rounded-start" alt="Default Profile Picture">
-            {% endif %}
-        </div>
-        <div class="col-md-8">
-            <div class="card-body">
-                <h5 class="card-title">{{ current_user.username }}</h5>
-                <p class="card-text"><strong>Email:</strong> {{ current_user.email }}</p>
-                {% if current_user.profile and current_user.profile.currency %}
-                <p class="card-text"><strong>Preferred Currency:</strong> {{ current_user.profile.currency }}</p>
-                {% endif %}
-            </div>
-        </div>
+<section class="split-layout">
+  <div class="surface-card profile-card">
+    <div class="profile-card__media">
+      {% if current_user.profile_picture %}
+      <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_picture) }}" alt="Profile Picture">
+      {% else %}
+      <div class="profile-fallback">{{ current_user.username[:1] }}</div>
+      {% endif %}
     </div>
-</div>
+    <div>
+      <h2>{{ current_user.username }}</h2>
+      <p class="muted-copy">{{ current_user.email }}</p>
+      <span class="inline-chip">{{ current_user.profile.currency if current_user.profile and current_user.profile.currency else 'USD' }}</span>
+    </div>
+  </div>
 
-<!-- Form to update profile -->
-<form method="POST" enctype="multipart/form-data">
+  <form method="POST" enctype="multipart/form-data" class="surface-card form-grid">
     {{ form.hidden_tag() }}
 
-    <div class="mb-3">
-        {{ form.username.label(class="form-label") }}
-        {{ form.username(class="form-control") }}
+    <div>
+      {{ form.username.label(class="form-label") }}
+      {{ form.username(class="form-control") }}
     </div>
 
-    <div class="mb-3">
-        {{ form.email.label(class="form-label") }}
-        {{ form.email(class="form-control") }}
+    <div>
+      {{ form.email.label(class="form-label") }}
+      {{ form.email(class="form-control") }}
     </div>
 
-    <div class="mb-3">
-        {{ form.password.label(class="form-label") }}
-        {{ form.password(class="form-control") }}
+    <div>
+      {{ form.preferred_currency.label(class="form-label") }}
+      {{ form.preferred_currency(class="form-control") }}
     </div>
 
-    <div class="mb-3">
-        {{ form.confirm_password.label(class="form-label") }}
-        {{ form.confirm_password(class="form-control") }}
+    <div>
+      {{ form.profile_picture.label(class="form-label") }}
+      {{ form.profile_picture(class="form-control") }}
     </div>
 
-    <div class="mb-3">
-        {{ form.profile_picture.label(class="form-label") }}
-        {{ form.profile_picture(class="form-control") }} {# Bootstrap 5 uses form-control for file input too #}
+    <div>
+      {{ form.password.label(class="form-label") }}
+      {{ form.password(class="form-control") }}
     </div>
 
-    <div class="mb-3">
-        {{ form.submit(class="btn btn-primary") }}
+    <div>
+      {{ form.confirm_password.label(class="form-label") }}
+      {{ form.confirm_password(class="form-control") }}
     </div>
-</form>
 
-<!-- Flash messages -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <ul class="mt-3">
-            {% for category, message in messages %}
-                <li class="alert alert-{{ category }}">{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-{% endwith %}
+    <div class="form-actions form-grid__full">
+      {{ form.submit(class="pill-button") }}
+    </div>
+  </form>
+</section>
 {% endblock %}

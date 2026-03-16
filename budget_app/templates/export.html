@@ -1,36 +1,34 @@
 {% extends 'base.html' %}
 
+{% block title %}Export Data - Budget Tracker{% endblock %}
+
 {% block content %}
-<h2>Export Your Financial Data</h2>
+<section class="form-shell">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Reporting</p>
+      <h1>Export financial records</h1>
+      <p class="muted-copy">Generate a CSV or PDF snapshot of your transactions for audits, sharing, or portfolio-ready reporting.</p>
+    </div>
+  </div>
 
-<form method="POST" class="mb-4">
+  <form method="POST" class="surface-card form-grid">
     {{ form.hidden_tag() }}
-
-    <div class="mb-3">
-        {{ form.export_format.label(class="form-label") }}
-        {{ form.export_format(class="form-control") }}
+    <div class="form-grid__full">
+      {{ form.export_format.label(class="form-label") }}
+      {{ form.export_format(class="form-control") }}
     </div>
-
-    <div class="row mb-3">
-        <div class="col">
-            {{ form.start_date.label(class="form-label") }}
-            {{ form.start_date(class="form-control") }}
-        </div>
-        <div class="col">
-            {{ form.end_date.label(class="form-label") }}
-            {{ form.end_date(class="form-control") }}
-        </div>
+    <div>
+      {{ form.start_date.label(class="form-label") }}
+      {{ form.start_date(class="form-control") }}
     </div>
-
-    {{ form.submit(class="btn btn-success") }}
-</form>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
-
+    <div>
+      {{ form.end_date.label(class="form-label") }}
+      {{ form.end_date(class="form-control") }}
+    </div>
+    <div class="form-actions form-grid__full">
+      {{ form.submit(class="pill-button") }}
+    </div>
+  </form>
+</section>
 {% endblock %}

@@ -3,74 +3,69 @@
 {% block title %}{% if is_edit %}Edit{% else %}Add{% endif %} Income - Budget Tracker{% endblock %}
 
 {% block content %}
-<!-- Add/Edit Income Section -->
-<div class="container mt-5">
-    <div class="card shadow-lg p-4 rounded">
-        <h2 class="text-center mb-4">{% if is_edit %}Edit{% else %}Add{% endif %} Income</h2>
-
-        <!-- Income Addition Form -->
-        <form method="POST">
-            {{ form.hidden_tag() }}
-
-            <!-- Amount Input -->
-            <div class="mb-3">
-                {{ form.amount.label(class="form-label") }}
-                {{ form.amount(class="form-control form-control-lg") }}
-            </div>
-
-            <!-- Source Input -->
-            <div class="mb-3">
-                {{ form.source.label(class="form-label") }}
-                {{ form.source(class="form-control form-control-lg") }}
-            </div>
-
-            <!-- Description Input -->
-            <div class="mb-3">
-                {{ form.description.label(class="form-label") }}
-                {{ form.description(class="form-control form-control-lg") }}
-            </div>
-
-            <!-- Date Input -->
-            <div class="mb-3">
-                {{ form.date.label(class="form-label") }}
-                {{ form.date(class="form-control form-control-lg") }}
-            </div>
-
-            <!-- Recurring Income Checkbox -->
-            <div class="form-check mb-3">
-                {{ form.is_recurring(class="form-check-input") }}
-                {{ form.is_recurring.label(class="form-check-label") }}
-            </div>
-
-            <!-- Frequency Selector (shown when recurring is checked) -->
-            <div class="mb-3" id="frequency-field" style="display: none;">
-                {{ form.frequency.label(class="form-label") }}
-                {{ form.frequency(class="form-control form-control-lg") }}
-            </div>
-
-            <!-- Submit Button -->
-            <div class="text-center">
-                <button type="submit" class="btn btn-success btn-lg px-4 py-2">{% if is_edit %}Update{% else %}Add{% endif %} Income</button>
-                <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary btn-lg px-4 py-2 ml-2">Cancel</a>
-            </div>
-        </form>
+<section class="form-shell">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Income workflow</p>
+      <h1>{% if is_edit %}Refine income details{% else %}Capture a new income stream{% endif %}</h1>
     </div>
-</div>
+  </div>
+
+  <form method="POST" class="surface-card form-grid">
+    {{ form.hidden_tag() }}
+
+    <div>
+      {{ form.amount.label(class="form-label") }}
+      {{ form.amount(class="form-control", placeholder="2500") }}
+    </div>
+
+    <div>
+      {{ form.currency_code.label(class="form-label") }}
+      {{ form.currency_code(class="form-control") }}
+    </div>
+
+    <div>
+      {{ form.source.label(class="form-label") }}
+      {{ form.source(class="form-control", placeholder="Salary, freelance, consulting") }}
+    </div>
+
+    <div>
+      {{ form.date.label(class="form-label") }}
+      {{ form.date(class="form-control") }}
+    </div>
+
+    <div class="form-grid__full">
+      {{ form.description.label(class="form-label") }}
+      {{ form.description(class="form-control", placeholder="Add context for this income entry") }}
+    </div>
+
+    <div class="form-grid__full inline-toggle">
+      {{ form.is_recurring() }}
+      {{ form.is_recurring.label }}
+    </div>
+
+    <div class="form-grid__full" id="frequency-field" style="display:none;">
+      {{ form.frequency.label(class="form-label") }}
+      {{ form.frequency(class="form-control") }}
+    </div>
+
+    <div class="form-actions form-grid__full">
+      <button type="submit" class="pill-button">{% if is_edit %}Update income{% else %}Save income{% endif %}</button>
+      <a href="{{ url_for('main.dashboard') }}" class="pill-button pill-button--muted">Cancel</a>
+    </div>
+  </form>
+</section>
 
 <script>
-    // Show/hide frequency field based on recurring checkbox
-    document.addEventListener('DOMContentLoaded', function() {
-        const recurringCheckbox = document.querySelector('#is_recurring');
-        const frequencyField = document.getElementById('frequency-field');
-        
-        if (recurringCheckbox) {
-            function toggleFrequency() {
-                frequencyField.style.display = recurringCheckbox.checked ? 'block' : 'none';
-            }
-            
-            recurringCheckbox.addEventListener('change', toggleFrequency);
-            toggleFrequency(); // Initial state
-        }
-    });
+document.addEventListener('DOMContentLoaded', function() {
+  const recurringCheckbox = document.querySelector('#is_recurring');
+  const frequencyField = document.getElementById('frequency-field');
+  if (!recurringCheckbox || !frequencyField) return;
+  const toggleFrequency = () => {
+    frequencyField.style.display = recurringCheckbox.checked ? 'block' : 'none';
+  };
+  recurringCheckbox.addEventListener('change', toggleFrequency);
+  toggleFrequency();
+});
 </script>
 {% endblock %}
