@@ -439,7 +439,13 @@ def group_detail(group_id):
         flash("Group not found.", "danger")
         return redirect(url_for('main.dashboard'))
 
-    return render_template('group_detail.html', group=group)
+    member_users = {}
+    for member in group.members:
+        user = User.query.get(member.user_id)
+        if user:
+            member_users[member.user_id] = user
+
+    return render_template('group_detail.html', group=group, member_users=member_users)
 
 
 # -------------------- View Groups --------------------

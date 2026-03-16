@@ -14,7 +14,7 @@
                 {% if group.members %}
                     <ul class="list-group">
                         {% for member in group.members %}
-                            {% set user = User.query.get(member.user_id) %}
+                            {% set user = member_users.get(member.user_id) %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 {{ user.username if user else 'Unknown User' }}
                                 {% if member.user_id == group.created_by %}
