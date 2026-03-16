@@ -41,7 +41,7 @@
       <aside class="app-rail">
         <div class="rail-card">
           <div class="rail-profile">
-            {% if current_user.profile_picture %}
+            {% if current_user.profile_picture and current_user.profile_picture != 'default.jpg' %}
             <img class="rail-profile__image" src="{{ url_for('static', filename='profile_pics/' + current_user.profile_picture) }}" alt="{{ current_user.username }} profile picture">
             {% else %}
             <div class="rail-profile__fallback">{{ current_user.username[:1] }}</div>

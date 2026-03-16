@@ -308,6 +308,9 @@ def _build_group_snapshot(group):
 
 # -------------------- Helper: Save Profile Picture --------------------
 def save_picture(form_picture):
+    if os.environ.get('VERCEL'):
+        return None
+
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
     picture_fn = random_hex + f_ext
@@ -623,7 +626,10 @@ def profile():
 
         if form.profile_picture.data:
             picture_file = save_picture(form.profile_picture.data)
-            current_user.profile_picture = picture_file
+            if picture_file:
+                current_user.profile_picture = picture_file
+            else:
+                flash('Profile image upload is not available on the current deployment environment yet.', 'warning')
 
         db.session.commit()
         flash('Your profile has been updated!', 'success')

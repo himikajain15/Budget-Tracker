@@ -897,14 +897,60 @@ a {
 
     .app-rail {
         position: static;
+        order: 2;
+    }
+
+    .main-panel {
+        order: 1;
     }
 }
 
 @media (max-width: 820px) {
-    .topbar__inner,
-    .topbar__nav {
+    .topbar__inner {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
+        padding: 14px 16px;
+        gap: 14px;
+    }
+
+    .brand {
+        width: 100%;
+    }
+
+    .brand span:last-child {
+        min-width: 0;
+    }
+
+    .brand strong {
+        font-size: 1.15rem;
+    }
+
+    .topbar__nav {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .topbar__nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .topbar__link {
+        white-space: nowrap;
+        padding: 9px 12px;
+        background: rgba(148, 163, 184, 0.06);
+        border: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    .topbar__actions {
+        width: 100%;
+    }
+
+    .topbar__actions .pill-button {
+        width: 100%;
     }
 
     .stat-grid,
@@ -922,11 +968,157 @@ a {
         align-items: flex-start;
     }
 
+    .hero-card,
+    .rail-card,
+    .surface-card,
+    .stat-card {
+        padding: 18px;
+        border-radius: 22px;
+    }
+
+    .hero-card h1 {
+        font-size: clamp(1.75rem, 9vw, 2.3rem);
+        max-width: 100%;
+    }
+
+    .hero-actions,
+    .form-actions,
+    .table-actions {
+        width: 100%;
+    }
+
+    .hero-actions .pill-button,
+    .form-actions .pill-button {
+        width: 100%;
+    }
+
+    .rail-profile {
+        align-items: center;
+    }
+
+    .rail-profile__image,
+    .rail-profile__fallback {
+        width: 60px;
+        height: 60px;
+        border-radius: 18px;
+    }
+
+    .chart-card {
+        gap: 14px;
+    }
+
+    .line-chart {
+        height: 150px;
+    }
+
+    .chart-axis {
+        font-size: 0.78rem;
+    }
+
+    .currency-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bar-chart__meta {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .ledger-link-card {
+        padding: 18px;
+    }
+
+    .data-table {
+        min-width: 680px;
+        font-size: 0.94rem;
+    }
+
     .split-member-row {
         grid-template-columns: 1fr;
     }
 
     .page-frame {
         padding-inline: 16px;
+        padding-top: 18px;
+    }
+
+    .app-shell::after {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    body::before,
+    body::after,
+    .app-shell::before {
+        opacity: 0.55;
+    }
+
+    .page-frame {
+        padding: 14px 12px 28px;
+        gap: 16px;
+    }
+
+    .topbar__inner {
+        padding: 12px;
+    }
+
+    .brand {
+        gap: 10px;
+    }
+
+    .brand__mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+
+    .brand small {
+        font-size: 0.9rem;
+    }
+
+    .eyebrow {
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+    }
+
+    .section-heading h1,
+    .section-heading h2,
+    .surface-card h2 {
+        line-height: 1.08;
+    }
+
+    .stat-card h3 {
+        font-size: 1.75rem;
+    }
+
+    .currency-card strong,
+    .amount {
+        font-size: 1.1rem;
+    }
+
+    .timeline-item,
+    .member-row,
+    .settlement-item,
+    .currency-card,
+    .ledger-link-card,
+    .split-member-row {
+        padding: 14px;
+    }
+
+    .pill-button,
+    .pill-button--muted {
+        min-height: 46px;
+    }
+
+    .auth-container {
+        padding: 16px;
+    }
+
+    .auth-card {
+        width: 100%;
+        padding: 24px 18px;
+        border-radius: 24px;
     }
 }
