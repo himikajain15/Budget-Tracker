@@ -23,3 +23,5 @@ build/
 model.pkl
 .DS_Store
 *.log
+budget_app/static/profile_pics/*
+!budget_app/static/profile_pics/.gitkeep
