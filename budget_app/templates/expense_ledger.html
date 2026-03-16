@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Expenses - Budget Tracker{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+  <div>
+    <p class="eyebrow">Expense ledger</p>
+    <h1>Expense records</h1>
+    <p class="muted-copy">Keep spending review separate from the overview, so this page can stay focused on logging, editing, and category tracking.</p>
+  </div>
+  <div class="hero-actions">
+    <a href="{{ url_for('main.add_expense') }}" class="pill-button">Add expense</a>
+    <a href="{{ url_for('main.dashboard') }}" class="pill-button pill-button--muted">Back to overview</a>
+  </div>
+</section>
+
+<section class="surface-card">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Summary</p>
+      <h2>Expenses by currency</h2>
+    </div>
+  </div>
+  <div class="currency-grid">
+    {% for currency_code, total in expense_totals.items() %}
+    <div class="currency-card">
+      <span>{{ currency_code }}</span>
+      <strong>{{ currency_symbols.get(currency_code, currency_code) }}{{ '%.2f'|format(total) }}</strong>
+      <small>Total recorded expense</small>
+    </div>
+    {% else %}
+    <div class="empty-state compact">
+      <h3>No expenses yet</h3>
+      <p>Add your first expense entry to start building this ledger.</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="surface-card">
+  {% if expenses %}
+  <div class="table-shell">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Amount</th>
+          <th>Currency</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for expense in expenses %}
+        <tr>
+          <td class="amount amount--negative">{{ currency_symbols.get(expense.currency_code, expense.currency_code) }}{{ '%.2f'|format(expense.amount) }}</td>
+          <td><span class="inline-chip">{{ expense.currency_code }}</span></td>
+          <td>{{ expense.category }}</td>
+          <td>{{ expense.description or 'No notes' }}</td>
+          <td>{{ expense.date.strftime('%Y-%m-%d') if expense.date else '-' }}</td>
+          <td class="table-actions">
+            <a href="{{ url_for('main.edit_expense', expense_id=expense.id) }}" class="table-link">Edit</a>
+            <form method="POST" action="{{ url_for('main.delete_expense', expense_id=expense.id) }}" onsubmit="return confirm('Delete this expense record?');">
+              <button type="submit" class="table-link table-link--danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <h3>No expense records yet</h3>
+    <p>Track spending by category, currency, and frequency to build a stronger personal finance history.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

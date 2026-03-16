@@ -5,9 +5,9 @@
 {% block content %}
 <section class="hero-card">
   <div>
-    <p class="eyebrow">Financial command center</p>
-    <h1>Move from expense tracking to financial clarity.</h1>
-    <p class="muted-copy">Monitor multi-currency cash flow, spot recent activity quickly, and keep shared settlements visible before they turn messy.</p>
+    <p class="eyebrow">Private wealth workspace</p>
+    <h1>Stay in control of cash, spend, and shared balances.</h1>
+    <p class="muted-copy">A cleaner operating view for personal finance: monitor inflows, track expenses, and manage split settlements without losing context.</p>
   </div>
   <div class="hero-actions">
     <a href="{{ url_for('main.add_income') }}" class="pill-button">Log income</a>
@@ -29,7 +29,67 @@
   <article class="stat-card">
     <p class="eyebrow">Active shared groups</p>
     <h3>{{ active_groups }}</h3>
-    <p>Splitwise-style spaces you belong to right now</p>
+    <p>Shared spaces currently contributing to your settlement picture</p>
+  </article>
+</section>
+
+<section class="chart-grid">
+  <article class="surface-card chart-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Cash trend</p>
+        <h2>Income vs expense</h2>
+      </div>
+    </div>
+    <div class="chart-card__legend">
+      <span class="chart-dot chart-dot--income"></span><span>Income</span>
+      <span class="chart-dot chart-dot--expense"></span><span>Expense</span>
+    </div>
+    <svg class="line-chart" viewBox="0 0 320 96" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="0" y1="20" x2="320" y2="20" class="line-chart__grid"></line>
+      <line x1="0" y1="48" x2="320" y2="48" class="line-chart__grid"></line>
+      <line x1="0" y1="80" x2="320" y2="80" class="line-chart__grid"></line>
+      <polyline class="line-chart__income" points="{{ chart_data.income_points }}" />
+      <polyline class="line-chart__expense" points="{{ chart_data.expense_points }}" />
+      {% for point in chart_data.income_point_objects %}
+      <circle class="line-chart__income-dot" cx="{{ point.x }}" cy="{{ point.y }}" r="4"></circle>
+      {% endfor %}
+      {% for point in chart_data.expense_point_objects %}
+      <circle class="line-chart__expense-dot" cx="{{ point.x }}" cy="{{ point.y }}" r="4"></circle>
+      {% endfor %}
+    </svg>
+    <div class="chart-axis">
+      {% for month in chart_data.months %}
+      <span>{{ month }}</span>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="surface-card chart-card">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Spend map</p>
+        <h2>Top categories</h2>
+      </div>
+    </div>
+    <div class="bar-chart">
+      {% for category, total in chart_data.top_categories %}
+      <div class="bar-chart__row">
+        <div class="bar-chart__meta">
+          <strong>{{ category }}</strong>
+          <span>{{ currency_symbols.get(preferred_currency, preferred_currency) }}{{ '%.0f'|format(total) }}</span>
+        </div>
+        <div class="bar-chart__track">
+          <span class="bar-chart__fill" style="width: {{ (total / chart_data.top_category_max * 100) if chart_data.top_category_max else 0 }}%"></span>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty-state compact">
+        <h3>No category data yet</h3>
+        <p>Add a few expenses to see where your money is going.</p>
+      </div>
+      {% endfor %}
+    </div>
   </article>
 </section>
 
@@ -89,96 +149,33 @@
 <section class="surface-card">
   <div class="section-heading">
     <div>
-      <p class="eyebrow">Income ledger</p>
-      <h2>Income records</h2>
+      <p class="eyebrow">Ledger shortcuts</p>
+      <h2>Open detailed ledgers</h2>
     </div>
-    <a href="{{ url_for('main.add_income') }}" class="pill-button">Add income</a>
-  </div>
-  {% if incomes %}
-  <div class="table-shell">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Amount</th>
-          <th>Currency</th>
-          <th>Source</th>
-          <th>Description</th>
-          <th>Date</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for income in incomes %}
-        <tr>
-          <td class="amount amount--positive">{{ currency_symbols.get(income.currency_code, income.currency_code) }}{{ '%.2f'|format(income.amount) }}</td>
-          <td><span class="inline-chip">{{ income.currency_code }}</span></td>
-          <td>{{ income.source }}</td>
-          <td>{{ income.description or 'No notes' }}</td>
-          <td>{{ income.date.strftime('%Y-%m-%d') if income.date else '-' }}</td>
-          <td class="table-actions">
-            <a href="{{ url_for('main.edit_income', income_id=income.id) }}" class="table-link">Edit</a>
-            <form method="POST" action="{{ url_for('main.delete_income', income_id=income.id) }}" onsubmit="return confirm('Delete this income record?');">
-              <button type="submit" class="table-link table-link--danger">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-state">
-    <h3>No income records yet</h3>
-    <p>Start by logging salary, freelance payments, refunds, or any inflow you want to track.</p>
-  </div>
-  {% endif %}
-</section>
-
-<section class="surface-card">
-  <div class="section-heading">
-    <div>
-      <p class="eyebrow">Expense ledger</p>
-      <h2>Expense records</h2>
+    <div class="hero-actions">
+      <a href="{{ url_for('main.income_ledger') }}" class="pill-button">Open income ledger</a>
+      <a href="{{ url_for('main.expense_ledger') }}" class="pill-button pill-button--muted">Open expense ledger</a>
     </div>
-    <a href="{{ url_for('main.add_expense') }}" class="pill-button pill-button--muted">Add expense</a>
   </div>
-  {% if expenses %}
-  <div class="table-shell">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Amount</th>
-          <th>Currency</th>
-          <th>Category</th>
-          <th>Description</th>
-          <th>Date</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for expense in expenses %}
-        <tr>
-          <td class="amount amount--negative">{{ currency_symbols.get(expense.currency_code, expense.currency_code) }}{{ '%.2f'|format(expense.amount) }}</td>
-          <td><span class="inline-chip">{{ expense.currency_code }}</span></td>
-          <td>{{ expense.category }}</td>
-          <td>{{ expense.description or 'No notes' }}</td>
-          <td>{{ expense.date.strftime('%Y-%m-%d') if expense.date else '-' }}</td>
-          <td class="table-actions">
-            <a href="{{ url_for('main.edit_expense', expense_id=expense.id) }}" class="table-link">Edit</a>
-            <form method="POST" action="{{ url_for('main.delete_expense', expense_id=expense.id) }}" onsubmit="return confirm('Delete this expense record?');">
-              <button type="submit" class="table-link table-link--danger">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="ledger-links">
+    <article class="ledger-link-card">
+      <p class="eyebrow">Income</p>
+      <h3>Track every inflow with context.</h3>
+      <p class="muted-copy">Review salary, freelance, refunds, and other entries on a dedicated page built for record-keeping.</p>
+      <div class="hero-actions">
+        <a href="{{ url_for('main.income_ledger') }}" class="pill-button">Income page</a>
+        <a href="{{ url_for('main.add_income') }}" class="pill-button pill-button--muted">Add income</a>
+      </div>
+    </article>
+    <article class="ledger-link-card">
+      <p class="eyebrow">Expenses</p>
+      <h3>Keep spending analysis separate and clean.</h3>
+      <p class="muted-copy">Use the expense ledger for category reviews, edits, and a cleaner look than stacking long tables on the overview.</p>
+      <div class="hero-actions">
+        <a href="{{ url_for('main.expense_ledger') }}" class="pill-button">Expense page</a>
+        <a href="{{ url_for('main.add_expense') }}" class="pill-button pill-button--muted">Add expense</a>
+      </div>
+    </article>
   </div>
-  {% else %}
-  <div class="empty-state">
-    <h3>No expense records yet</h3>
-    <p>Track spending by category, currency, and frequency to build a stronger personal finance history.</p>
-  </div>
-  {% endif %}
 </section>
 {% endblock %}

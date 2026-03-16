@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Income - Budget Tracker{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+  <div>
+    <p class="eyebrow">Income ledger</p>
+    <h1>Income records</h1>
+    <p class="muted-copy">Review all inflows in one place, keep entries clean, and use this page as your dedicated record of earnings.</p>
+  </div>
+  <div class="hero-actions">
+    <a href="{{ url_for('main.add_income') }}" class="pill-button">Add income</a>
+    <a href="{{ url_for('main.dashboard') }}" class="pill-button pill-button--muted">Back to overview</a>
+  </div>
+</section>
+
+<section class="surface-card">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Summary</p>
+      <h2>Income by currency</h2>
+    </div>
+  </div>
+  <div class="currency-grid">
+    {% for currency_code, total in income_totals.items() %}
+    <div class="currency-card">
+      <span>{{ currency_code }}</span>
+      <strong>{{ currency_symbols.get(currency_code, currency_code) }}{{ '%.2f'|format(total) }}</strong>
+      <small>Total recorded income</small>
+    </div>
+    {% else %}
+    <div class="empty-state compact">
+      <h3>No income yet</h3>
+      <p>Add your first income entry to start building this ledger.</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="surface-card">
+  {% if incomes %}
+  <div class="table-shell">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Amount</th>
+          <th>Currency</th>
+          <th>Source</th>
+          <th>Description</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for income in incomes %}
+        <tr>
+          <td class="amount amount--positive">{{ currency_symbols.get(income.currency_code, income.currency_code) }}{{ '%.2f'|format(income.amount) }}</td>
+          <td><span class="inline-chip">{{ income.currency_code }}</span></td>
+          <td>{{ income.source }}</td>
+          <td>{{ income.description or 'No notes' }}</td>
+          <td>{{ income.date.strftime('%Y-%m-%d') if income.date else '-' }}</td>
+          <td class="table-actions">
+            <a href="{{ url_for('main.edit_income', income_id=income.id) }}" class="table-link">Edit</a>
+            <form method="POST" action="{{ url_for('main.delete_income', income_id=income.id) }}" onsubmit="return confirm('Delete this income record?');">
+              <button type="submit" class="table-link table-link--danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <h3>No income records yet</h3>
+    <p>Start by logging salary, freelance payments, refunds, or any inflow you want to track.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -181,10 +181,10 @@ class CreateGroupForm(FlaskForm):
 class AddMemberForm(FlaskForm):
     """
     Form to add a member to an existing group.
-    Includes username and group ID.
+    Includes the member display name and group ID.
     """
-    # Username field (required)
-    username = StringField('Username', validators=[DataRequired()])
+    # Member name field (required)
+    member_name = StringField('Member Name', validators=[DataRequired()])
 
     # Hidden field to store the group ID being modified
     group_id = HiddenField()
@@ -205,6 +205,15 @@ class AddSharedExpenseForm(FlaskForm):
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0.01)])
 
     currency_code = SelectField('Currency', choices=CURRENCY_CHOICES, validators=[DataRequired()])
+    split_method = SelectField(
+        'Split Method',
+        choices=[
+            ('equal', 'Split equally'),
+            ('percentage', 'Split by percentage'),
+            ('exact', 'Split by exact amounts'),
+        ],
+        validators=[DataRequired()],
+    )
 
     # Paid by field (required, selects the user who paid)
     paid_by = SelectField('Paid By', coerce=int, validators=[DataRequired()])

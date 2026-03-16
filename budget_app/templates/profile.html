@@ -23,7 +23,7 @@
     <div>
       <h2>{{ current_user.username }}</h2>
       <p class="muted-copy">{{ current_user.email }}</p>
-      <span class="inline-chip">{{ current_user.profile.currency if current_user.profile and current_user.profile.currency else 'USD' }}</span>
+      <span class="inline-chip">{{ form.preferred_currency.data or 'INR' }}</span>
     </div>
   </div>
 

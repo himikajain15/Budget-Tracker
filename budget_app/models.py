@@ -15,6 +15,8 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100))
     password = db.Column(db.String(200), nullable=False)
     profile_picture = db.Column(db.String(150), nullable=True, default='default.jpg')
+    is_guest = db.Column(db.Boolean, nullable=False, default=False)
+    invite_token = db.Column(db.String(64), unique=True, nullable=True)
 
     # One-to-many relationships
     incomes = db.relationship('Income', backref='user', lazy=True)
@@ -93,7 +95,7 @@ class UserProfile(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(150))
-    currency = db.Column(db.String(10), default='USD')  # Currency preference
+    currency = db.Column(db.String(10), default='INR')  # Currency preference
     bio = db.Column(db.String(300))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
@@ -129,6 +131,7 @@ class SharedExpense(db.Model):
     description = db.Column(db.String(255), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     currency_code = db.Column(db.String(3), nullable=False, default='USD')
+    split_method = db.Column(db.String(20), nullable=False, default='equal')
     paid_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

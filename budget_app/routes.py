@@ -36,8 +36,81 @@ def _sum_amounts_by_currency(records):
 
 def _preferred_currency(user):
     if getattr(user, 'profile', None) and user.profile.currency:
+        if user.profile.currency == 'USD':
+            return 'INR'
         return user.profile.currency
-    return 'USD'
+    return 'INR'
+
+
+def _member_display_name(user):
+    if not user:
+        return 'Unknown'
+    if getattr(user, 'is_guest', False):
+        return user.name or 'Guest member'
+    return user.name or user.username
+
+
+def _member_meta(user):
+    if not user:
+        return 'No details available'
+    if getattr(user, 'is_guest', False):
+        return 'Guest member'
+    return user.email
+
+
+def _split_method_label(split_method):
+    labels = {
+        'equal': 'Split equally',
+        'percentage': 'Split by percentage',
+        'exact': 'Split by exact amounts',
+    }
+    return labels.get(split_method, 'Split equally')
+
+
+def _parse_split_amounts(group, amount, split_method):
+    members = [member for member in group.members if member.user_id]
+    if not members:
+        return {}, 'Group has no members.'
+
+    if split_method == 'equal':
+        share_per_person = round(amount / len(members), 2)
+        split_map = {member.user_id: share_per_person for member in members}
+        adjustment = round(amount - sum(split_map.values()), 2)
+        if adjustment:
+            split_map[members[0].user_id] = round(split_map[members[0].user_id] + adjustment, 2)
+        return split_map, None
+
+    split_map = {}
+    raw_values = {}
+    for member in members:
+        raw_value = (request.form.get(f'share_{member.user_id}') or '').strip()
+        if not raw_value:
+            return {}, f'Enter a split value for {_member_display_name(member.user)}.'
+        try:
+            raw_values[member.user_id] = float(raw_value)
+        except ValueError:
+            return {}, f'Enter a valid number for {_member_display_name(member.user)}.'
+
+    if split_method == 'percentage':
+        total_percentage = round(sum(raw_values.values()), 2)
+        if abs(total_percentage - 100) > 0.05:
+            return {}, 'Percentage split must total 100.'
+        for user_id, percentage in raw_values.items():
+            split_map[user_id] = round(amount * (percentage / 100), 2)
+    elif split_method == 'exact':
+        total_exact = round(sum(raw_values.values()), 2)
+        if abs(total_exact - amount) > 0.05:
+            return {}, 'Exact split amounts must match the total expense.'
+        split_map = {user_id: round(value, 2) for user_id, value in raw_values.items()}
+    else:
+        return {}, 'Unsupported split method selected.'
+
+    adjustment = round(amount - sum(split_map.values()), 2)
+    if adjustment:
+        first_user_id = members[0].user_id
+        split_map[first_user_id] = round(split_map[first_user_id] + adjustment, 2)
+
+    return split_map, None
 
 
 def _recent_transactions(incomes, expenses):
@@ -63,8 +136,85 @@ def _recent_transactions(incomes, expenses):
             'date': expense.date,
         })
 
-    timeline.sort(key=lambda item: item['date'] or datetime.min.date(), reverse=True)
+    def _normalize_sort_date(value):
+        if value is None:
+            return datetime.min
+        if isinstance(value, datetime):
+            return value
+        return datetime.combine(value, datetime.min.time())
+
+    timeline.sort(key=lambda item: _normalize_sort_date(item['date']), reverse=True)
     return timeline[:8]
+
+
+def _build_dashboard_charts(incomes, expenses):
+    monthly_totals = defaultdict(lambda: {'income': 0.0, 'expense': 0.0})
+
+    for income in incomes:
+        if income.date:
+            month_key = income.date.strftime('%b')
+            monthly_totals[month_key]['income'] += income.amount
+
+    for expense in expenses:
+        expense_date = expense.date.date() if isinstance(expense.date, datetime) else expense.date
+        if expense_date:
+            month_key = expense_date.strftime('%b')
+            monthly_totals[month_key]['expense'] += expense.amount
+
+    ordered_months = list(monthly_totals.keys())[-6:]
+    if not ordered_months:
+        ordered_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+
+    income_series = [round(monthly_totals[month]['income'], 2) for month in ordered_months]
+    expense_series = [round(monthly_totals[month]['expense'], 2) for month in ordered_months]
+    max_value = max(income_series + expense_series + [1])
+
+    def _points(series):
+        if len(series) == 1:
+            return "0,80"
+        width = 320
+        height = 80
+        step = width / (len(series) - 1)
+        coords = []
+        for index, value in enumerate(series):
+            x = round(index * step, 1)
+            y = round(height - ((value / max_value) * height), 1)
+            coords.append(f"{x},{y}")
+        return " ".join(coords)
+
+    def _point_objects(series):
+        if len(series) == 1:
+            return [{'x': 0, 'y': 80, 'value': series[0]}]
+        width = 320
+        height = 80
+        step = width / (len(series) - 1)
+        points = []
+        for index, value in enumerate(series):
+            points.append({
+                'x': round(index * step, 1),
+                'y': round(height - ((value / max_value) * height), 1),
+                'value': value,
+            })
+        return points
+
+    category_totals = defaultdict(float)
+    for expense in expenses:
+        category_totals[expense.category or 'Other'] += expense.amount
+
+    top_categories = sorted(category_totals.items(), key=lambda item: item[1], reverse=True)[:4]
+    top_category_max = max([value for _, value in top_categories] + [1])
+
+    return {
+        'months': ordered_months,
+        'income_series': income_series,
+        'expense_series': expense_series,
+        'income_points': _points(income_series),
+        'expense_points': _points(expense_series),
+        'income_point_objects': _point_objects(income_series),
+        'expense_point_objects': _point_objects(expense_series),
+        'top_categories': top_categories,
+        'top_category_max': top_category_max,
+    }
 
 
 def _build_group_snapshot(group):
@@ -94,7 +244,8 @@ def _build_group_snapshot(group):
             'amount': expense.amount,
             'currency_code': currency_code,
             'split_amount': split_amount,
-            'paid_by_name': payer.username if payer else 'Unknown',
+            'split_method': _split_method_label(getattr(expense, 'split_method', 'equal')),
+            'paid_by_name': _member_display_name(payer),
             'created_at': expense.created_at,
         })
 
@@ -119,9 +270,9 @@ def _build_group_snapshot(group):
         for row in member_balance_rows:
             balance_value = row['balances'].get(currency_code, 0)
             if balance_value > 0:
-                creditors.append({'username': row['user'].username, 'amount': balance_value})
+                creditors.append({'username': _member_display_name(row['user']), 'amount': balance_value})
             elif balance_value < 0:
-                debtors.append({'username': row['user'].username, 'amount': -balance_value})
+                debtors.append({'username': _member_display_name(row['user']), 'amount': -balance_value})
 
         creditors.sort(key=lambda item: item['amount'], reverse=True)
         debtors.sort(key=lambda item: item['amount'], reverse=True)
@@ -190,7 +341,7 @@ def register():
         )
         db.session.add(new_user)
         db.session.flush()
-        db.session.add(UserProfile(user_id=new_user.id, currency='USD'))
+        db.session.add(UserProfile(user_id=new_user.id, currency='INR'))
         db.session.commit()
         flash('Account created successfully! You can now log in.', 'success')
         return redirect(url_for('main.login'))
@@ -244,6 +395,7 @@ def dashboard():
 
     active_groups = Group.query.join(GroupMember).filter(GroupMember.user_id == current_user.id).count()
     recent_transactions = _recent_transactions(incomes, expenses)
+    chart_data = _build_dashboard_charts(incomes, expenses)
     preferred_currency = _preferred_currency(current_user)
     savings_rate = 0
     preferred_income = income_totals.get(preferred_currency, 0)
@@ -253,8 +405,6 @@ def dashboard():
 
     return render_template(
         'dashboard.html',
-        incomes=sorted(incomes, key=lambda item: item.date or date.min, reverse=True),
-        expenses=sorted(expenses, key=lambda item: item.date or datetime.min, reverse=True),
         income_totals=income_totals,
         expense_totals=expense_totals,
         balance_totals=balance_totals,
@@ -262,6 +412,33 @@ def dashboard():
         savings_rate=savings_rate,
         active_groups=active_groups,
         recent_transactions=recent_transactions,
+        chart_data=chart_data,
+        currency_symbols=CURRENCY_SYMBOLS,
+    )
+
+
+@main.route('/income')
+@login_required
+def income_ledger():
+    incomes = Income.query.filter_by(user_id=current_user.id).all()
+    income_totals = _sum_amounts_by_currency(incomes)
+    return render_template(
+        'income_ledger.html',
+        incomes=sorted(incomes, key=lambda item: item.date or date.min, reverse=True),
+        income_totals=income_totals,
+        currency_symbols=CURRENCY_SYMBOLS,
+    )
+
+
+@main.route('/expenses')
+@login_required
+def expense_ledger():
+    expenses = Expense.query.filter_by(user_id=current_user.id).all()
+    expense_totals = _sum_amounts_by_currency(expenses)
+    return render_template(
+        'expense_ledger.html',
+        expenses=sorted(expenses, key=lambda item: item.date or datetime.min, reverse=True),
+        expense_totals=expense_totals,
         currency_symbols=CURRENCY_SYMBOLS,
     )
 
@@ -286,7 +463,7 @@ def add_income():
         db.session.add(income)
         db.session.commit()
         flash('Income added successfully!', 'success')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.income_ledger'))
     return render_template('add_income.html', form=form)
 
 
@@ -320,7 +497,7 @@ def add_expense():
         db.session.add(expense)
         db.session.commit()
         flash('Expense added!', 'success')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.expense_ledger'))
     return render_template('add_expense.html', form=form)
 
 
@@ -331,7 +508,7 @@ def edit_expense(expense_id):
     expense = Expense.query.get_or_404(expense_id)
     if expense.user_id != current_user.id:
         flash('You do not have permission to edit this expense.', 'danger')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.expense_ledger'))
     
     form = ExpenseForm(obj=expense)
     if form.validate_on_submit():
@@ -352,7 +529,7 @@ def edit_expense(expense_id):
         expense.frequency = form.frequency.data if form.is_recurring.data else 'none'
         db.session.commit()
         flash('Expense updated successfully!', 'success')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.expense_ledger'))
     return render_template('add_expense.html', form=form, expense=expense, is_edit=True)
 
 
@@ -363,12 +540,12 @@ def delete_expense(expense_id):
     expense = Expense.query.get_or_404(expense_id)
     if expense.user_id != current_user.id:
         flash('You do not have permission to delete this expense.', 'danger')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.expense_ledger'))
     
     db.session.delete(expense)
     db.session.commit()
     flash('Expense deleted successfully!', 'success')
-    return redirect(url_for('main.dashboard'))
+    return redirect(url_for('main.expense_ledger'))
 
 
 # -------------------- Edit Income --------------------
@@ -378,7 +555,7 @@ def edit_income(income_id):
     income = Income.query.get_or_404(income_id)
     if income.user_id != current_user.id:
         flash('You do not have permission to edit this income.', 'danger')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.income_ledger'))
     
     form = IncomeForm(obj=income)
     if form.validate_on_submit():
@@ -391,7 +568,7 @@ def edit_income(income_id):
         income.frequency = form.frequency.data if form.is_recurring.data else 'none'
         db.session.commit()
         flash('Income updated successfully!', 'success')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.income_ledger'))
     return render_template('add_income.html', form=form, income=income, is_edit=True)
 
 
@@ -402,12 +579,12 @@ def delete_income(income_id):
     income = Income.query.get_or_404(income_id)
     if income.user_id != current_user.id:
         flash('You do not have permission to delete this income.', 'danger')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.income_ledger'))
     
     db.session.delete(income)
     db.session.commit()
     flash('Income deleted successfully!', 'success')
-    return redirect(url_for('main.dashboard'))
+    return redirect(url_for('main.income_ledger'))
 
 
 # -------------------- Profile --------------------
@@ -415,6 +592,10 @@ def delete_income(income_id):
 @login_required
 def profile():
     form = ProfileForm()
+
+    if current_user.profile and current_user.profile.currency == 'USD':
+        current_user.profile.currency = 'INR'
+        db.session.commit()
 
     # Pre-fill current user data
     if request.method == 'GET':
@@ -573,9 +754,8 @@ def create_group():
 @main.route('/group/<int:group_id>/add_member', methods=['GET', 'POST'])
 @login_required
 def add_member(group_id):
-    member_username = request.form.get('username')
+    member_name = (request.form.get('member_name') or '').strip()
     group = Group.query.get(group_id)
-    user = User.query.filter_by(username=member_username).first()
 
     if not group:
         flash("Group not found.", "danger")
@@ -585,21 +765,40 @@ def add_member(group_id):
         flash("Only the group owner can add members.", "danger")
         return redirect(url_for('main.view_group', group_id=group_id))
 
-    if not user:
-        flash("User not found.", "danger")
+    if not member_name:
+        flash("Enter a member name to continue.", "danger")
         return redirect(url_for('main.group_detail', group_id=group_id))
+
+    user = User.query.filter_by(username=member_name, is_guest=False).first()
+
+    if not user:
+        safe_token = secrets.token_urlsafe(16)
+        guest_stub = safe_token[:12]
+        user = User(
+            username=f'guest_{guest_stub}',
+            email=f'guest_{guest_stub}@budgettracker.local',
+            name=member_name,
+            password=generate_password_hash(secrets.token_urlsafe(24)),
+            is_guest=True,
+            invite_token=safe_token,
+        )
+        db.session.add(user)
+        db.session.flush()
 
     # Check if already a member
     existing = GroupMember.query.filter_by(group_id=group_id, user_id=user.id).first()
     if existing:
-        flash("User is already a member of this group.", "warning")
+        flash("That member is already part of this group.", "warning")
         return redirect(url_for('main.group_detail', group_id=group_id))
 
     # Safely create and add member
     new_member = GroupMember(group_id=group.id, user_id=user.id)
     db.session.add(new_member)
     db.session.commit()
-    flash(f"{member_username} added to the group.", "success")
+    if user.is_guest:
+        flash(f"{member_name} added as a guest member. Share the invite link from the group page if they want to join later.", "success")
+    else:
+        flash(f"{member_name} added to the group.", "success")
     return redirect(url_for('main.group_detail', group_id=group_id))
 
 
@@ -624,7 +823,21 @@ def group_detail(group_id):
         if user:
             member_users[member.user_id] = user
 
-    return render_template('group_detail.html', group=group, member_users=member_users, currency_symbols=CURRENCY_SYMBOLS)
+    invite_links = {
+        user_id: url_for('main.claim_invite', token=user.invite_token, _external=True)
+        for user_id, user in member_users.items()
+        if user.is_guest and user.invite_token
+    }
+
+    return render_template(
+        'group_detail.html',
+        group=group,
+        member_users=member_users,
+        invite_links=invite_links,
+        currency_symbols=CURRENCY_SYMBOLS,
+        member_display_name=_member_display_name,
+        member_meta=_member_meta,
+    )
 
 
 # -------------------- View Groups --------------------
@@ -670,6 +883,8 @@ def view_group(group_id):
         expense_feed=snapshot['expense_feed'],
         settlement_suggestions=snapshot['settlement_suggestions'],
         currency_symbols=CURRENCY_SYMBOLS,
+        member_display_name=_member_display_name,
+        member_meta=_member_meta,
     )
 
 
@@ -687,34 +902,39 @@ def add_shared_expense(group_id):
     
     form = AddSharedExpenseForm()
     form.currency_code.data = form.currency_code.data or _preferred_currency(current_user)
-    # Get actual user objects from group members
+    form.split_method.data = form.split_method.data or 'equal'
     member_users = [User.query.get(member.user_id) for member in group.members if User.query.get(member.user_id)]
-    form.paid_by.choices = [(user.id, user.username) for user in member_users]
+    form.paid_by.choices = [(user.id, _member_display_name(user)) for user in member_users]
 
     if form.validate_on_submit():
         description = form.description.data
         amount = form.amount.data
         paid_by_id = form.paid_by.data
         currency_code = form.currency_code.data
+        split_method = form.split_method.data
+        split_map, error_message = _parse_split_amounts(group, amount, split_method)
+        if error_message:
+            flash(error_message, 'danger')
+            return render_template('add_shared_expense.html', form=form, group=group, member_users=member_users, member_display_name=_member_display_name)
 
-        expense = SharedExpense(description=description, amount=amount, currency_code=currency_code, group_id=group.id, paid_by=paid_by_id)
+        expense = SharedExpense(
+            description=description,
+            amount=amount,
+            currency_code=currency_code,
+            split_method=split_method,
+            group_id=group.id,
+            paid_by=paid_by_id
+        )
         db.session.add(expense)
-        db.session.flush()  # Get the expense ID
+        db.session.flush()
 
-        # Calculate share per member
-        total_members = len(group.members)
-        if total_members == 0:
-            flash('Group has no members.', 'danger')
-            return redirect(url_for('main.view_group', group_id=group_id))
-        
-        share_per_person = amount / total_members
-
-        # Create ExpenseShare records for each member
         for member in group.members:
+            if member.user_id not in split_map:
+                continue
             share = ExpenseShare(
                 expense_id=expense.id,
                 user_id=member.user_id,
-                amount_owed=share_per_person
+                amount_owed=split_map[member.user_id]
             )
             db.session.add(share)
 
@@ -722,4 +942,46 @@ def add_shared_expense(group_id):
         flash('Shared expense added successfully!', 'success')
         return redirect(url_for('main.view_group', group_id=group.id))
 
-    return render_template('add_shared_expense.html', form=form, group=group)
+    return render_template(
+        'add_shared_expense.html',
+        form=form,
+        group=group,
+        member_users=member_users,
+        member_display_name=_member_display_name,
+    )
+
+
+@main.route('/invite/<token>')
+@login_required
+def claim_invite(token):
+    guest_user = User.query.filter_by(invite_token=token, is_guest=True).first()
+
+    if not guest_user:
+        flash('This invite link is invalid or has already been claimed.', 'warning')
+        return redirect(url_for('main.view_groups'))
+
+    guest_memberships = GroupMember.query.filter_by(user_id=guest_user.id).all()
+    for membership in guest_memberships:
+        existing_membership = GroupMember.query.filter_by(group_id=membership.group_id, user_id=current_user.id).first()
+        if existing_membership:
+            db.session.delete(membership)
+        else:
+            membership.user_id = current_user.id
+
+    for expense in SharedExpense.query.filter_by(paid_by=guest_user.id).all():
+        expense.paid_by = current_user.id
+
+    guest_shares = ExpenseShare.query.filter_by(user_id=guest_user.id).all()
+    for share in guest_shares:
+        existing_share = ExpenseShare.query.filter_by(expense_id=share.expense_id, user_id=current_user.id).first()
+        if existing_share:
+            existing_share.amount_owed += share.amount_owed
+            db.session.delete(share)
+        else:
+            share.user_id = current_user.id
+
+    db.session.flush()
+    db.session.delete(guest_user)
+    db.session.commit()
+    flash('Invite claimed successfully. Your account is now connected to those shared balances.', 'success')
+    return redirect(url_for('main.view_groups'))

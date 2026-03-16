@@ -24,13 +24,25 @@
       {% set user = member_users.get(member.user_id) %}
       <div class="member-row">
         <div>
-          <strong>{{ user.username if user else 'Unknown User' }}</strong>
-          <p class="muted-copy">{{ user.email if user else 'No email available' }}</p>
+          <strong>{{ member_display_name(user) if user else 'Unknown User' }}</strong>
+          <p class="muted-copy">{{ member_meta(user) if user else 'No details available' }}</p>
         </div>
-        {% if member.user_id == group.created_by %}
-        <span class="inline-chip inline-chip--positive">Owner</span>
-        {% endif %}
+        <div class="balance-stack">
+          {% if member.user_id == group.created_by %}
+          <span class="inline-chip inline-chip--positive">Owner</span>
+          {% endif %}
+          {% if user and user.is_guest %}
+          <span class="inline-chip">Guest</span>
+          {% endif %}
+        </div>
       </div>
+      {% if user and user.is_guest and invite_links.get(member.user_id) %}
+      <div class="invite-link-card">
+        <label class="form-label" for="invite-link-{{ member.user_id }}">Invite link for {{ member_display_name(user) }}</label>
+        <input id="invite-link-{{ member.user_id }}" type="text" class="form-control" value="{{ invite_links.get(member.user_id) }}" readonly onclick="this.select();">
+        <p class="muted-copy">Share this when they want to join the app and connect their account to this guest entry.</p>
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
   </div>
@@ -44,8 +56,9 @@
     </div>
     <form action="{{ url_for('main.add_member', group_id=group.id) }}" method="POST" class="form-grid">
       <div class="form-grid__full">
-        <label for="username" class="form-label">Username</label>
-        <input type="text" class="form-control" id="username" name="username" placeholder="Enter the username to invite" required>
+        <label for="member_name" class="form-label">Member name</label>
+        <input type="text" class="form-control" id="member_name" name="member_name" placeholder="Type a friend's name or an existing username" required>
+        <p class="muted-copy">You can add someone even if they do not use the app yet. Guest members get an invite link you can share later.</p>
       </div>
       <div class="form-actions form-grid__full">
         <button type="submit" class="pill-button">Add member</button>

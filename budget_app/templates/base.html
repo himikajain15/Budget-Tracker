@@ -6,7 +6,7 @@
   <title>{% block title %}Budget Tracker{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="{% if current_user.is_authenticated %}app-body{% else %}auth-body{% endif %}">
   {% if current_user.is_authenticated %}
@@ -23,6 +23,8 @@
 
         <nav class="topbar__nav">
           <a class="topbar__link" href="{{ url_for('main.dashboard') }}">Overview</a>
+          <a class="topbar__link" href="{{ url_for('main.income_ledger') }}">Income</a>
+          <a class="topbar__link" href="{{ url_for('main.expense_ledger') }}">Expenses</a>
           <a class="topbar__link" href="{{ url_for('main.graph') }}">Insights</a>
           <a class="topbar__link" href="{{ url_for('main.view_groups') }}">Shared Groups</a>
           <a class="topbar__link" href="{{ url_for('main.export') }}">Exports</a>
@@ -30,7 +32,6 @@
         </nav>
 
         <div class="topbar__actions">
-          <a class="pill-button pill-button--muted" href="{{ url_for('main.toggle_dark_mode') }}">Theme</a>
           <a class="pill-button" href="{{ url_for('main.logout') }}">Sign out</a>
         </div>
       </div>
@@ -39,16 +40,25 @@
     <div class="page-frame">
       <aside class="app-rail">
         <div class="rail-card">
-          <p class="eyebrow">Workspace</p>
-          <h2>{{ current_user.username }}</h2>
+          <div class="rail-profile">
+            {% if current_user.profile_picture %}
+            <img class="rail-profile__image" src="{{ url_for('static', filename='profile_pics/' + current_user.profile_picture) }}" alt="{{ current_user.username }} profile picture">
+            {% else %}
+            <div class="rail-profile__fallback">{{ current_user.username[:1] }}</div>
+            {% endif %}
+            <div>
+              <p class="eyebrow">Workspace</p>
+              <h2>{{ current_user.username }}</h2>
+            </div>
+          </div>
           <p class="muted-copy">Track personal cash flow, recurring items, and shared balances in one place.</p>
         </div>
 
         <div class="rail-card">
           <p class="eyebrow">Quick actions</p>
           <div class="rail-actions">
-            <a href="{{ url_for('main.add_income') }}">New income</a>
-            <a href="{{ url_for('main.add_expense') }}">New expense</a>
+            <a href="{{ url_for('main.income_ledger') }}">Income ledger</a>
+            <a href="{{ url_for('main.expense_ledger') }}">Expense ledger</a>
             <a href="{{ url_for('main.create_group') }}">Create group</a>
             <a href="{{ url_for('main.view_groups') }}">Shared expenses</a>
           </div>

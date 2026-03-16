@@ -1,8 +1,8 @@
 CURRENCY_CHOICES = [
+    ('INR', 'INR - Indian Rupee'),
     ('USD', 'USD - US Dollar'),
     ('EUR', 'EUR - Euro'),
     ('GBP', 'GBP - British Pound'),
-    ('INR', 'INR - Indian Rupee'),
     ('AED', 'AED - UAE Dirham'),
     ('CAD', 'CAD - Canadian Dollar'),
     ('AUD', 'AUD - Australian Dollar'),

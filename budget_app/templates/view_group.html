@@ -27,8 +27,8 @@
       {% for row in member_balance_rows %}
       <div class="member-row">
         <div>
-          <strong>{{ row.user.username }}</strong>
-          <p class="muted-copy">{{ row.user.email }}</p>
+          <strong>{{ member_display_name(row.user) }}</strong>
+          <p class="muted-copy">{{ member_meta(row.user) }}</p>
         </div>
         <div class="balance-stack">
           {% for currency_code, amount in row.balances.items() %}
@@ -78,12 +78,12 @@
   </div>
   <div class="timeline-list">
     {% for expense in expense_feed %}
-    <div class="timeline-item">
-      <div class="timeline-item__meta">
-        <strong>{{ expense.description }}</strong>
-        <span>{{ expense.created_at.strftime('%Y-%m-%d') if expense.created_at else 'N/A' }}</span>
-      </div>
-      <p>Paid by {{ expense.paid_by_name }}. Split evenly at {{ currency_symbols.get(expense.currency_code, expense.currency_code) }}{{ '%.2f'|format(expense.split_amount) }} per member.</p>
+      <div class="timeline-item">
+        <div class="timeline-item__meta">
+          <strong>{{ expense.description }}</strong>
+          <span>{{ expense.created_at.strftime('%Y-%m-%d') if expense.created_at else 'N/A' }}</span>
+        </div>
+      <p>Paid by {{ expense.paid_by_name }}. {{ expense.split_method }} at approximately {{ currency_symbols.get(expense.currency_code, expense.currency_code) }}{{ '%.2f'|format(expense.split_amount) }} average per member.</p>
       <div class="timeline-item__amount">
         {{ expense.currency_code }} {{ currency_symbols.get(expense.currency_code, expense.currency_code) }}{{ '%.2f'|format(expense.amount) }}
       </div>

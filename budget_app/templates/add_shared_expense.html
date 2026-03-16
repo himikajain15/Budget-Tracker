@@ -31,14 +31,92 @@
     </div>
 
     <div class="form-grid__full">
+      {{ form.split_method.label(class="form-label") }}
+      {{ form.split_method(class="form-control", id="split_method") }}
+      <p class="muted-copy">Choose whether this expense should be split equally, by percentage, or with exact owed amounts.</p>
+    </div>
+
+    <div class="form-grid__full">
       {{ form.paid_by.label(class="form-label") }}
       {{ form.paid_by(class="form-control") }}
+      <p class="muted-copy">Need to log a payment for someone who is not on the app yet? Add them as a guest from the group management screen first.</p>
+    </div>
+
+    <div class="form-grid__full split-config-card" id="split-config-card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Split configuration</p>
+          <h2>Define each member's share</h2>
+        </div>
+      </div>
+      <div class="split-member-grid">
+        {% for user in member_users %}
+        <div class="split-member-row">
+          <div>
+            <strong>{{ member_display_name(user) }}</strong>
+            <p class="muted-copy">{% if user.is_guest %}Guest member{% else %}{{ user.email }}{% endif %}</p>
+          </div>
+          <div>
+            <label class="form-label split-value-label" for="share_{{ user.id }}">Share</label>
+            <input
+              id="share_{{ user.id }}"
+              name="share_{{ user.id }}"
+              type="number"
+              step="0.01"
+              min="0"
+              class="form-control split-share-input"
+              placeholder="Enter share"
+              value="{{ request.form.get('share_' ~ user.id, '') }}"
+            >
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="muted-copy" id="split-help-text">Equal split will divide the total automatically across all members.</p>
     </div>
 
     <div class="form-actions form-grid__full">
       <button type="submit" class="pill-button">Add shared expense</button>
+      <a href="{{ url_for('main.group_detail', group_id=group.id) }}" class="pill-button pill-button--muted">Manage members</a>
       <a href="{{ url_for('main.view_group', group_id=group.id) }}" class="pill-button pill-button--muted">Back to group</a>
     </div>
   </form>
 </section>
+
+<script>
+  (function () {
+    const splitMethod = document.getElementById('split_method');
+    const splitCard = document.getElementById('split-config-card');
+    const helpText = document.getElementById('split-help-text');
+    const valueLabels = document.querySelectorAll('.split-value-label');
+    const inputs = document.querySelectorAll('.split-share-input');
+
+    function updateSplitUI() {
+      const method = splitMethod.value;
+      const isEqual = method === 'equal';
+      splitCard.classList.toggle('split-config-card--collapsed', isEqual);
+
+      valueLabels.forEach((label) => {
+        label.textContent = method === 'percentage' ? 'Percentage' : 'Amount';
+      });
+
+      inputs.forEach((input) => {
+        input.placeholder = method === 'percentage' ? 'e.g. 25' : 'Enter share';
+      });
+
+      if (method === 'percentage') {
+        helpText.textContent = 'Enter percentages for each member. The total must add up to 100.';
+      } else if (method === 'exact') {
+        helpText.textContent = 'Enter the exact amount each member owes. The total must match the expense amount.';
+      } else {
+        helpText.textContent = 'Equal split will divide the total automatically across all members.';
+      }
+    }
+
+    if (splitMethod) {
+      splitMethod.addEventListener('change', updateSplitUI);
+      updateSplitUI();
+    }
+  })();
+</script>
 {% endblock %}

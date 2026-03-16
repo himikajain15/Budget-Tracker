@@ -57,6 +57,10 @@ def create_app():
 def _ensure_runtime_columns():
     inspector = inspect(db.engine)
     required_columns = {
+        'user': {
+            'is_guest': "ALTER TABLE \"user\" ADD COLUMN is_guest BOOLEAN DEFAULT FALSE NOT NULL",
+            'invite_token': "ALTER TABLE \"user\" ADD COLUMN invite_token VARCHAR(64)"
+        },
         'income': {
             'currency_code': "ALTER TABLE income ADD COLUMN currency_code VARCHAR(3) DEFAULT 'USD' NOT NULL"
         },
@@ -64,7 +68,8 @@ def _ensure_runtime_columns():
             'currency_code': "ALTER TABLE expense ADD COLUMN currency_code VARCHAR(3) DEFAULT 'USD' NOT NULL"
         },
         'shared_expense': {
-            'currency_code': "ALTER TABLE shared_expense ADD COLUMN currency_code VARCHAR(3) DEFAULT 'USD' NOT NULL"
+            'currency_code': "ALTER TABLE shared_expense ADD COLUMN currency_code VARCHAR(3) DEFAULT 'USD' NOT NULL",
+            'split_method': "ALTER TABLE shared_expense ADD COLUMN split_method VARCHAR(20) DEFAULT 'equal' NOT NULL"
         },
     }
 
