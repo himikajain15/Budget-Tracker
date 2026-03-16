@@ -63,13 +63,13 @@
         {% endfor %}
       {% endif %}
     {% endwith %}
+  {% endif %}
 
-    {% block content %}
-    {% endblock %}
+  {% block content %}
+  {% endblock %}
+
+  {% if current_user.is_authenticated %}
   </div>
-  {% else %}
-    {% block content %}
-    {% endblock %}
   {% endif %}
 
   {% if current_user.is_authenticated %}
