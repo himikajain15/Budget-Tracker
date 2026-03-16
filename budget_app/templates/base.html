@@ -42,7 +42,7 @@
         <div class="rail-card">
           <div class="rail-profile">
             {% if current_user.profile_picture and current_user.profile_picture != 'default.jpg' %}
-            <img class="rail-profile__image" src="{{ url_for('static', filename='profile_pics/' + current_user.profile_picture) }}" alt="{{ current_user.username }} profile picture">
+            <img class="rail-profile__image" src="{% if current_user.profile_picture.startswith('http') %}{{ current_user.profile_picture }}{% else %}{{ url_for('static', filename='profile_pics/' + current_user.profile_picture) }}{% endif %}" alt="{{ current_user.username }} profile picture">
             {% else %}
             <div class="rail-profile__fallback">{{ current_user.username[:1] }}</div>
             {% endif %}

@@ -16,6 +16,10 @@ from PIL import Image
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from .forms import ProfileForm
+try:
+    import cloudinary.uploader
+except ImportError:
+    cloudinary = None
 
 from . import db
 from .models import User, Income, Expense, UserProfile, Group, SharedExpense, GroupMember, ExpenseShare
@@ -308,6 +312,26 @@ def _build_group_snapshot(group):
 
 # -------------------- Helper: Save Profile Picture --------------------
 def save_picture(form_picture):
+    cloudinary_ready = (
+        cloudinary is not None
+        and (
+            os.environ.get('CLOUDINARY_URL')
+            or (
+                os.environ.get('CLOUDINARY_CLOUD_NAME')
+                and os.environ.get('CLOUDINARY_API_KEY')
+                and os.environ.get('CLOUDINARY_API_SECRET')
+            )
+        )
+    )
+
+    if cloudinary_ready:
+        upload_result = cloudinary.uploader.upload(
+            form_picture,
+            folder='budget-tracker/profile_pics',
+            resource_type='image',
+        )
+        return upload_result.get('secure_url')
+
     if os.environ.get('VERCEL'):
         return None
 
@@ -629,7 +653,7 @@ def profile():
             if picture_file:
                 current_user.profile_picture = picture_file
             else:
-                flash('Profile image upload is not available on the current deployment environment yet.', 'warning')
+                flash('Profile image upload is not configured yet. Add Cloudinary credentials in production to enable it.', 'warning')
 
         db.session.commit()
         flash('Your profile has been updated!', 'success')

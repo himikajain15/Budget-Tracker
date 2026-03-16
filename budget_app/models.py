@@ -14,7 +14,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(150), nullable=False, unique=True)
     name = db.Column(db.String(100))
     password = db.Column(db.String(200), nullable=False)
-    profile_picture = db.Column(db.String(150), nullable=True, default='default.jpg')
+    profile_picture = db.Column(db.String(300), nullable=True)
     is_guest = db.Column(db.Boolean, nullable=False, default=False)
     invite_token = db.Column(db.String(64), unique=True, nullable=True)
 

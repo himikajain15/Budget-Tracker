@@ -143,8 +143,14 @@ Important environment variables for production:
 
 - `SECRET_KEY`
 - `DATABASE_URL` for persistent production data
+- `CLOUDINARY_URL` or:
+  - `CLOUDINARY_CLOUD_NAME`
+  - `CLOUDINARY_API_KEY`
+  - `CLOUDINARY_API_SECRET`
 
 If `DATABASE_URL` is not configured on Vercel, the app falls back to temporary SQLite storage, which is not suitable for persistent production use.
+
+For production profile image uploads on Vercel, configure Cloudinary. Without Cloudinary credentials, the app falls back to avatar initials instead of storing uploaded files.
 
 ## Resume Value
 
