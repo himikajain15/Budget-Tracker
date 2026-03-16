@@ -9,6 +9,7 @@ from datetime import datetime, date
 from io import BytesIO, StringIO
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, Response
 from flask_login import login_user, login_required, logout_user, current_user
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -340,11 +341,15 @@ def register():
             profile_picture=picture_file
         )
         db.session.add(new_user)
-        db.session.flush()
-        db.session.add(UserProfile(user_id=new_user.id, currency='INR'))
-        db.session.commit()
-        flash('Account created successfully! You can now log in.', 'success')
-        return redirect(url_for('main.login'))
+        try:
+            db.session.flush()
+            db.session.add(UserProfile(user_id=new_user.id, currency='INR'))
+            db.session.commit()
+            flash('Account created successfully! You can now log in.', 'success')
+            return redirect(url_for('main.login'))
+        except IntegrityError:
+            db.session.rollback()
+            flash('That username or email is already in use. Try a different one or sign in instead.', 'danger')
     return render_template('register.html', form=form)
 
 

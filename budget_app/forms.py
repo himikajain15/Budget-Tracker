@@ -3,10 +3,11 @@
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, FloatField, BooleanField, SelectField, TextAreaField, DateField, FileField, HiddenField
-from wtforms.validators import DataRequired, Length, EqualTo, Email, Optional, NumberRange
+from wtforms.validators import DataRequired, Length, EqualTo, Email, Optional, NumberRange, ValidationError
 from flask_wtf.file import FileAllowed
 from flask_login import current_user
 from .currencies import CURRENCY_CHOICES
+from .models import User
 
 
 # -------------------- Profile Update Form --------------------
@@ -62,6 +63,16 @@ class RegistrationForm(FlaskForm):
 
     # Submit button for the form
     submit = SubmitField('Register')
+
+    def validate_username(self, username):
+        existing_user = User.query.filter_by(username=username.data).first()
+        if existing_user:
+            raise ValidationError('That username is already taken. Try a different one.')
+
+    def validate_email(self, email):
+        existing_user = User.query.filter_by(email=email.data).first()
+        if existing_user:
+            raise ValidationError('That email is already registered. Try signing in instead.')
 
 
 # -------------------- User Login Form --------------------
