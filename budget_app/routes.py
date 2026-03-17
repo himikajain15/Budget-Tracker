@@ -17,6 +17,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from .forms import ProfileForm
 try:
+    import cloudinary
+    import cloudinary.exceptions
     import cloudinary.uploader
 except ImportError:
     cloudinary = None
@@ -312,25 +314,19 @@ def _build_group_snapshot(group):
 
 # -------------------- Helper: Save Profile Picture --------------------
 def save_picture(form_picture):
-    cloudinary_ready = (
-        cloudinary is not None
-        and (
-            os.environ.get('CLOUDINARY_URL')
-            or (
-                os.environ.get('CLOUDINARY_CLOUD_NAME')
-                and os.environ.get('CLOUDINARY_API_KEY')
-                and os.environ.get('CLOUDINARY_API_SECRET')
-            )
-        )
-    )
+    cloudinary_ready = _configure_cloudinary()
 
     if cloudinary_ready:
-        upload_result = cloudinary.uploader.upload(
-            form_picture,
-            folder='budget-tracker/profile_pics',
-            resource_type='image',
-        )
-        return upload_result.get('secure_url')
+        try:
+            upload_result = cloudinary.uploader.upload(
+                form_picture,
+                folder='budget-tracker/profile_pics',
+                resource_type='image',
+            )
+            return upload_result.get('secure_url')
+        except cloudinary.exceptions.Error:
+            current_app.logger.exception('Cloudinary upload failed.')
+            return None
 
     if os.environ.get('VERCEL'):
         return None
@@ -346,6 +342,30 @@ def save_picture(form_picture):
     img.save(picture_path)
 
     return picture_fn
+
+
+def _configure_cloudinary():
+    if cloudinary is None:
+        return False
+
+    if os.environ.get('CLOUDINARY_URL'):
+        cloudinary.config(cloudinary_url=os.environ.get('CLOUDINARY_URL'), secure=True)
+        return True
+
+    cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
+    api_key = os.environ.get('CLOUDINARY_API_KEY')
+    api_secret = os.environ.get('CLOUDINARY_API_SECRET')
+
+    if cloud_name and api_key and api_secret:
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True,
+        )
+        return True
+
+    return False
 
 
 # -------------------- Home --------------------
@@ -653,7 +673,7 @@ def profile():
             if picture_file:
                 current_user.profile_picture = picture_file
             else:
-                flash('Profile image upload is not configured yet. Add Cloudinary credentials in production to enable it.', 'warning')
+                flash('Profile image upload could not be completed. Check your Cloudinary credentials in production.', 'warning')
 
         db.session.commit()
         flash('Your profile has been updated!', 'success')
